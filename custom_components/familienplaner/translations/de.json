@@ -287,6 +287,34 @@
     "wochenrueckblick": {
       "name": "Wochenrückblick",
       "description": "Schickt allen sofort den Rückblick auf diese und die Vorschau auf die nächste Woche."
+    },
+    "aufgabe_nehmen": {
+      "name": "Aufgabe nehmen",
+      "description": "Legt eine vorgefertigte Haushaltsaufgabe aus dem Katalog in die Liste einer Person (fällig heute). Ohne Person landet sie beim angemeldeten Benutzer.",
+      "fields": {
+        "aufgabe": {
+          "name": "Aufgabe",
+          "description": "Schlüssel oder Titel aus dem Katalog."
+        },
+        "person": {
+          "name": "Person",
+          "description": "Kürzel der Person (anderen zuweisen dürfen nur Admins)."
+        },
+        "punkte": {
+          "name": "Punkte",
+          "description": "Abweichende Punkte (nur Admins)."
+        }
+      }
+    },
+    "katalog_festlegen": {
+      "name": "Aufgaben-Katalog festlegen",
+      "description": "Ersetzt die Liste der vorgefertigten Haushaltsaufgaben.",
+      "fields": {
+        "aufgaben": {
+          "name": "Aufgaben",
+          "description": "Liste mit titel (Emoji vorne = Bild), punkte, bereich (kueche, putzen, waesche, ordnung, draussen, tiere) und optional key."
+        }
+      }
     }
   },
   "entity": {

@@ -18,6 +18,8 @@ no YAML needed. *Deutsch weiter unten.*
 - Chores with points: a family race track, streaks, levels, a reward shop and an automatic chore rotation
 - Big picture tiles for tasks, so children who can't read yet know what to do (tap = done, with confetti)
 - Family treasure map: everyone walks together across an island, each station unlocks a family reward
+- Task catalogue with over 40 classic household chores (kitchen, cleaning, laundry, tidying, outside, pets) that
+  everyone can pick for themselves with one tap – with picture and points
 - Conflict warnings: double bookings and drivers who are busy themselves
 - Events from one sentence: "Ben has football tomorrow at 3pm, Anna drives" (text field, service, Assist voice)
 - Weekly review every Sunday evening: this week done, next week per person, birthdays, waste
@@ -97,6 +99,9 @@ Die Ansicht **Aufgaben** erscheint automatisch im Familienplaner-Dashboard:
   Familie weiter. An jeder Station gibt es eine Familien-Belohnung (Push an alle und Eintrag in der Familienliste),
   am Ende wartet die Schatzkiste. Danach startet „Neue Schatzinsel“ von vorne. Eigene Stationen mit
   `familienplaner.schatzkarte_festlegen`.
+- **Aufgaben nehmen**: Ein Katalog mit über 40 klassischen Haushaltsaufgaben (Küche, Putzen, Wäsche, Ordnung,
+  Draußen, Tiere), jede mit Bild und Punkten. Antippen = die Aufgabe landet für heute in der eigenen Liste. Eltern
+  (Admins) können sie auch anderen geben. Eigener Katalog mit `familienplaner.katalog_festlegen`.
 - **Belohnungs-Shop**: Punkte vom Konto einlösen; in der Familienliste erscheint „🎁 Ben löst ein: …“ für die Eltern.
 - **Haushalts-Rotation**: Spülmaschine, Tisch decken (täglich) und Müll (Mo + Do) wechseln morgens reihum zwischen
   allen Personen mit „Bei der Rotation mitmachen“ und landen mit Punkten in deren Liste (plus Push).
@@ -107,7 +112,7 @@ Voraussetzung: Jede Person hat in der Einrichtung eine **Aufgabenliste** und ein
 Zuordnung zum angemeldeten Benutzer).
 
 Dienste: `familienplaner.punkte_buchen`, `belohnung_einloesen`, `fahrzeug_waehlen`, `rennen_neu_starten`,
-`dienste_verteilen`, `belohnungen_festlegen`, `dienste_festlegen`, `schatzkarte_festlegen`, `neue_insel`.
+`dienste_verteilen`, `belohnungen_festlegen`, `dienste_festlegen`, `schatzkarte_festlegen`, `neue_insel`, `aufgabe_nehmen`, `katalog_festlegen`.
 
 ```yaml
 action: familienplaner.schatzkarte_festlegen
@@ -122,6 +127,7 @@ Die Karten funktionieren auch einzeln:
 
 - `type: custom:rennstrecke-card` (findet das Rennen selbst) oder mit `entity: sensor.familienplaner_familien_rennen`
 - `type: custom:schatzkarte-card` (findet die Schatzkarte selbst)
+- `type: custom:katalog-card` (Aufgaben-Katalog, optional `bereich: kueche`)
 - `type: custom:aufgaben-bilder-card` mit `entity: todo.ben` (optional `farbe`, `ton: false`, `erledigte: false`,
   `titel`)
 

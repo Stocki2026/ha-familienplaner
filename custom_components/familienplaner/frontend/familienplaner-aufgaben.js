@@ -118,6 +118,11 @@
       });
     }
 
+    // --- Aufgaben-Katalog: vorgefertigte Haushaltsaufgaben zum Selbst-Nehmen --------------
+    if (Array.isArray(a.katalog) && a.katalog.length) {
+      sections.push({ type: "grid", column_span: 4, cards: [{ type: "custom:katalog-card", entity: rennen }] });
+    }
+
     // --- Haushalt heute + Familienliste --------------------------------------------
     const hausKarten = [
       { type: "heading", heading: t.haushalt, icon: "mdi:home-heart" },
