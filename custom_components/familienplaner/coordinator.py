@@ -440,8 +440,8 @@ class FamilienplanerCoordinator(DataUpdateCoordinator[PlanerDaten]):
             elif tage == 0:
                 await self.async_benachrichtigen(FAMILY, f"🎉 Heute: {t.summary}", "Nicht vergessen zu gratulieren!")
 
-    async def _wochenrueckblick_sonntag(self, now: datetime) -> None:
-        if dt_util.as_local(now).weekday() == 6:
+    async def _wochenrueckblick_sonntag(self, _now: datetime) -> None:
+        if dt_util.now().weekday() == 6:
             await self.async_wochenrueckblick()
 
     async def async_wochenrueckblick(self) -> dict[str, str]:

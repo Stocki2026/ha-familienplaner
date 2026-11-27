@@ -141,8 +141,9 @@ async def test_wochenrueckblick(hass: HomeAssistant, basis, freezer: FrozenDateT
     )
     basis["ben"].clear()
     basis["anna"].clear()
-    # Sonntag 18:00 -> automatisch
-    freezer.move_to(dt_util.parse_datetime("2026-11-29T18:00:00+01:00"))
+    # Sonntag 18:00 -> automatisch. HA versetzt Zeit-Trigger um bis zu 0,5 s
+    # (RANDOM_MICROSECOND_MAX), deshalb eine Sekunde danach prüfen.
+    freezer.move_to(dt_util.parse_datetime("2026-11-29T18:00:01+01:00"))
     await _tick(hass, basis)
     ben = [c for c in basis["ben"] if "Deine Woche" in c.data["title"]]
     assert ben and "Di 1.12.: 16:00 Fußball" in ben[0].data["message"]
