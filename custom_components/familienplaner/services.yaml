@@ -70,3 +70,91 @@ benachrichtigen:
         text:
           multiline: true
 morgen_ansage:
+
+punkte_buchen:
+  fields:
+    person:
+      required: true
+      example: anna
+      selector:
+        text:
+    punkte:
+      required: true
+      example: 10
+      selector:
+        number:
+          min: -1000
+          max: 1000
+          mode: box
+    aufgaben:
+      default: 0
+      selector:
+        number:
+          min: -100
+          max: 100
+          mode: box
+
+belohnung_einloesen:
+  fields:
+    belohnung:
+      required: true
+      example: Eis essen
+      selector:
+        text:
+    kosten:
+      required: true
+      example: 50
+      selector:
+        number:
+          min: 1
+          max: 100000
+          mode: box
+    person:
+      example: ben
+      selector:
+        text:
+
+fahrzeug_waehlen:
+  fields:
+    person:
+      required: true
+      example: ben
+      selector:
+        text:
+    fahrzeug:
+      example: Rennwagen
+      selector:
+        select:
+          options:
+            - Auto
+            - Rennwagen
+            - Motorrad
+            - Pferd
+            - Einhorn
+            - Fahrrad
+            - Traktor
+            - Rakete
+    farbe:
+      example: Lila
+      selector:
+        text:
+
+rennen_neu_starten:
+
+dienste_verteilen:
+
+belohnungen_festlegen:
+  fields:
+    belohnungen:
+      required: true
+      example: '[{"name": "Eis essen", "kosten": 50, "icon": "mdi:ice-cream"}]'
+      selector:
+        object:
+
+dienste_festlegen:
+  fields:
+    dienste:
+      required: true
+      example: '[{"titel": "🍽️ Spülmaschine ausräumen", "punkte": 15, "tage": [0,1,2,3,4,5,6]}]'
+      selector:
+        object:

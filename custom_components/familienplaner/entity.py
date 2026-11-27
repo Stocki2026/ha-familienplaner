@@ -25,3 +25,8 @@ class FamilienplanerEntity(CoordinatorEntity[FamilienplanerCoordinator]):
             model=entry.title,
             entry_type=DeviceEntryType.SERVICE,
         )
+
+
+def erweiterungen(coordinator: FamilienplanerCoordinator, plattform: str) -> list:
+    """Entitäten, die Erweiterungen (z. B. aufgaben.py) für eine Plattform beisteuern."""
+    return [e for fabrik in getattr(coordinator, "erweiterungen", []) for e in fabrik(coordinator, plattform)]

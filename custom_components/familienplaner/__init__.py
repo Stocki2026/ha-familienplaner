@@ -31,6 +31,7 @@ PLATFORMS = [
     Platform.NUMBER,
     Platform.SWITCH,
     Platform.BUTTON,
+    Platform.TIME,
 ]
 
 type FamilienplanerConfigEntry = ConfigEntry[FamilienplanerCoordinator]
@@ -187,16 +188,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: FamilienplanerConfigEntr
 
     _dienste_registrieren(hass)
     await _frontend_registrieren(hass)
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    entry.async_on_unload(entry.add_update_listener(_neu_laden))
 
-    # Erweiterungen (z. B. Aufgaben/Punkte-Modul) einhängen, falls vorhanden
+    # Erweiterungen (z. B. Aufgaben/Punkte-Modul) vor den Plattformen einhängen,
+    # damit sie ihre Entitäten über entity.erweiterungen() mitliefern können.
+    coord.erweiterungen = []
     try:
         from . import aufgaben  # type: ignore[attr-defined]
     except ImportError:
         aufgaben = None
     if aufgaben is not None and hasattr(aufgaben, "async_setup"):
         await aufgaben.async_setup(hass, entry, coord)
+
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    entry.async_on_unload(entry.add_update_listener(_neu_laden))
     return True
 
 

@@ -15,6 +15,7 @@ no YAML needed. *Deutsch weiter unten.*
 - Birthday assistant (gift to-do one week before), countdowns, waste collection, school holidays
 - Meal plan that puts ingredients on the shopping list, family pinboard
 - Alexa morning briefing (weather, events, drivers, birthdays, meals, waste)
+- Chores with points: a family race track, streaks, levels, a reward shop and an automatic chore rotation
 - Dashboard strategy `custom:familienplaner`: week view for a wall tablet, a personal view per user for phones,
   family, meals and month – new people appear automatically
 
@@ -69,6 +70,32 @@ Dashboard automatisch die eingebauten Kalenderkarten.
 | Essensplan | Dienst `familienplaner.gericht_planen`: Gericht in den Kalender, Zutaten auf die Einkaufsliste |
 | Pinnwand | offene Einträge der Pinnwand-Liste als gelbe Zettel |
 | Alexa-Morgen-Ansage | Wetter, Termine mit Fahrer, Geburtstage, Essen, Müll; automatisch oder per Knopf |
+
+## Aufgaben, Punkte & Familien-Rennen
+
+Die Ansicht **Aufgaben** erscheint automatisch im Familienplaner-Dashboard:
+
+- **Punkte fürs Abhaken**: Jede erledigte Aufgabe bringt Punkte (Standard 10). `+20` oder `⭐20` im Titel = 20 Punkte.
+  Haken wieder raus = Punkte wieder weg. Aufgaben aus der Familienliste zählen für die Person, die sie abhakt.
+- **Familien-Rennen**: Alle fahren auf einer Rennstrecke, Position nach Punkten. Wer zuerst die Ziellinie erreicht,
+  gewinnt und bekommt einen Sieger-Bonus. Fahrzeug (Auto, Rennwagen, Motorrad, Pferd, Einhorn, Fahrrad, Traktor,
+  Rakete) und Farbe wählt jede Person in der Garage selbst (Fahrzeug antippen). Kinder nur ihr eigenes, Admins alle.
+- **Serien, Level, Familienziel**: ab 3 Tagen am Stück Serien-Bonus, Level nach Gesamtpunkten, gemeinsames Ziel
+  (z. B. Pizzaabend), auf das alle Punkte einzahlen.
+- **Belohnungs-Shop**: Punkte vom Konto einlösen; in der Familienliste erscheint „🎁 Ben löst ein: …“ für die Eltern.
+- **Haushalts-Rotation**: Spülmaschine, Tisch decken (täglich) und Müll (Mo + Do) wechseln morgens reihum zwischen
+  allen Personen mit „Bei der Rotation mitmachen“ und landen mit Punkten in deren Liste (plus Push).
+- **Eltern-Bereich**: sichtbar für Personen, die *nicht* bei der Rotation mitmachen. Bonuspunkte, Spielregeln,
+  neues Rennen, Rotation ein/aus und Uhrzeit.
+
+Voraussetzung: Jede Person hat in der Einrichtung eine **Aufgabenliste** und eine **Person-Entität** (für die
+Zuordnung zum angemeldeten Benutzer).
+
+Dienste: `familienplaner.punkte_buchen`, `belohnung_einloesen`, `fahrzeug_waehlen`, `rennen_neu_starten`,
+`dienste_verteilen`, `belohnungen_festlegen`, `dienste_festlegen`.
+
+Die Karte `custom:rennstrecke-card` funktioniert auch einzeln: `type: custom:rennstrecke-card` (findet das Rennen
+selbst) oder mit `entity: sensor.familienplaner_familien_rennen`.
 
 ## Dienste
 

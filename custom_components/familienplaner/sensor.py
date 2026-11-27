@@ -26,7 +26,7 @@ from .const import (
     FAMILY_COLOR,
 )
 from .coordinator import FamilienplanerCoordinator
-from .entity import FamilienplanerEntity
+from .entity import FamilienplanerEntity, erweiterungen
 from .models import Person
 
 
@@ -40,7 +40,7 @@ async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities: AddE
         FerienSensor(coord),
         PinnwandSensor(coord),
     ]
-    async_add_entities(entities)
+    async_add_entities(entities + erweiterungen(coord, "sensor"))
 
 
 class NaechsterTerminSensor(FamilienplanerEntity, SensorEntity):

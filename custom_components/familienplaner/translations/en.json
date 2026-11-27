@@ -174,6 +174,88 @@
     "morgen_ansage": {
       "name": "Morning briefing",
       "description": "Plays the daily briefing on the Alexa devices and returns the text."
+    },
+    "punkte_buchen": {
+      "name": "Book points",
+      "description": "Adds points for a person (race, account, total and family goal). Admins only.",
+      "fields": {
+        "person": {
+          "name": "Person",
+          "description": "Person slug, e.g. anna."
+        },
+        "punkte": {
+          "name": "Points",
+          "description": "Positive or negative points."
+        },
+        "aufgaben": {
+          "name": "Number of tasks",
+          "description": "Counts towards daily and weekly stats."
+        }
+      }
+    },
+    "belohnung_einloesen": {
+      "name": "Redeem reward",
+      "description": "Deducts the cost from the points account and adds a task to the family list.",
+      "fields": {
+        "belohnung": {
+          "name": "Reward",
+          "description": "What is redeemed."
+        },
+        "kosten": {
+          "name": "Cost",
+          "description": "Points to deduct."
+        },
+        "person": {
+          "name": "Person",
+          "description": "Leave empty for the signed-in person."
+        }
+      }
+    },
+    "fahrzeug_waehlen": {
+      "name": "Choose vehicle",
+      "description": "Change vehicle and colour on the race track. Children only for themselves, admins for everyone.",
+      "fields": {
+        "person": {
+          "name": "Person",
+          "description": "Person slug."
+        },
+        "fahrzeug": {
+          "name": "Vehicle",
+          "description": "Auto, Rennwagen, Motorrad, Pferd, Einhorn, Fahrrad, Traktor or Rakete."
+        },
+        "farbe": {
+          "name": "Colour",
+          "description": "Colour name or hex value."
+        }
+      }
+    },
+    "rennen_neu_starten": {
+      "name": "Start new race",
+      "description": "Resets all race points to 0. Account, level and streaks stay."
+    },
+    "dienste_verteilen": {
+      "name": "Assign chores now",
+      "description": "Assigns today's household chores immediately."
+    },
+    "belohnungen_festlegen": {
+      "name": "Set rewards",
+      "description": "Replaces the reward shop list.",
+      "fields": {
+        "belohnungen": {
+          "name": "Rewards",
+          "description": "List with name, kosten and optional icon."
+        }
+      }
+    },
+    "dienste_festlegen": {
+      "name": "Set chores",
+      "description": "Replaces the household chores of the rotation.",
+      "fields": {
+        "dienste": {
+          "name": "Chores",
+          "description": "List with titel, punkte, tage (0 = Monday) and optional versatz."
+        }
+      }
     }
   }
 }
