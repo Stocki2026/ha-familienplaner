@@ -120,28 +120,51 @@
     }
 
     setConfig(config) {
-      if (!config || !config.entity || !String(config.entity).startsWith("todo.")) {
-        throw new Error("aufgaben-bilder-card: Bitte 'entity: todo.…' angeben.");
-      }
-      const neu = !this._config || this._config.entity !== config.entity;
+      const ok = config && (config.person || (config.entity && String(config.entity).startsWith("todo.")));
+      if (!ok) throw new Error("aufgaben-bilder-card: Bitte 'entity: todo.…' oder 'person: auto' angeben.");
       this._config = { ton: true, erledigte: true, ...config };
-      if (neu) this._abmelden();
-      if (this._hass) this._anmelden();
+      this._wechsel();
+    }
+
+    /** Aktuelle Liste: feste entity, eine Person (Kürzel) oder „auto“ = die am Gerät gewählte Person. */
+    get _liste() {
+      const c = this._config || {};
+      if (c.entity) return c.entity;
+      if (!this._hass) return null;
+      const wahl = c.person === "auto" ? (window.familienplaner && window.familienplaner.person) || "familie" : c.person;
+      for (const st of Object.values(this._hass.states)) {
+        const a = st.attributes;
+        if (!Array.isArray(a.fahrer) || !a.entitaeten) continue;
+        const f = a.fahrer.find((x) => x.slug === wahl);
+        return (f && f.liste) || a.familien_liste || null;
+      }
+      return null;
+    }
+
+    _wechsel() {
+      if (this._aktiv !== this._liste) {
+        this._abmelden();
+        if (this._hass && this.isConnected) this._anmelden();
+      }
       this._render();
     }
 
     set hass(hass) {
       const erste = !this._hass;
       this._hass = hass;
-      if (erste) this._anmelden();
-      this._render();
+      if (erste || this._aktiv !== this._liste) this._wechsel();
+      else this._render();
     }
 
     connectedCallback() {
+      // Personenwahl am Wand-Display (familienplaner-cards.js) mitziehen
+      this._personHandler = this._personHandler || (() => this._config && this._config.person === "auto" && this._wechsel());
+      window.addEventListener("familienplaner-person", this._personHandler);
       if (this._hass && this._config) this._anmelden();
     }
 
     disconnectedCallback() {
+      window.removeEventListener("familienplaner-person", this._personHandler);
       this._abmelden();
     }
 
@@ -158,16 +181,20 @@
     }
 
     async _anmelden() {
-      if (this._unsub || !this._hass || !this._config) return;
-      const entity = this._config.entity;
+      const entity = this._liste;
+      if (this._unsub || !this._hass || !this._config || !entity) return;
+      this._aktiv = entity;
       try {
-        this._unsub = await this._hass.connection.subscribeMessage(
+        const unsub = await this._hass.connection.subscribeMessage(
           (msg) => {
+            if (this._aktiv !== entity) return;
             this._items = msg.items || [];
             this._render();
           },
           { type: "todo/item/subscribe", entity_id: entity }
         );
+        if (this._aktiv !== entity) unsub();
+        else this._unsub = unsub;
       } catch (e) {
         try {
           const r = await this._hass.callWS({ type: "todo/item/list", entity_id: entity });
@@ -191,7 +218,7 @@
       if (this._config.farbe) return this._config.farbe;
       // Personenfarbe aus dem Familien-Rennen übernehmen, falls vorhanden
       for (const st of Object.values(this._hass.states)) {
-        const f = Array.isArray(st.attributes.fahrer) && st.attributes.fahrer.find((x) => x.liste === this._config.entity);
+        const f = Array.isArray(st.attributes.fahrer) && st.attributes.fahrer.find((x) => x.liste === this._liste);
         if (f) return f.farbe_hex || "#5F7F63";
       }
       return "var(--primary-color)";
@@ -200,7 +227,7 @@
     _render() {
       if (!this._hass || !this._config) return;
       const t = this._t;
-      const st = this._hass.states[this._config.entity];
+      const st = this._hass.states[this._liste];
       const farbe = this._farbe();
       const items = this._items || [];
       const offen = items.filter((i) => i.status === "needs_action");
@@ -220,7 +247,7 @@
       };
 
       let inhalt;
-      if (!st) inhalt = `<div class="leer">${esc(t.fehlt)}: ${esc(this._config.entity)}</div>`;
+      if (!st) inhalt = `<div class="leer">${esc(t.fehlt)}: ${esc(this._liste)}</div>`;
       else if (this._items === null) inhalt = `<div class="leer"><span class="lade"></span></div>`;
       else if (!offen.length)
         inhalt = `<div class="geschafft"><span class="pokal">🏆</span><b>${esc(t.fertig)}</b><span>${esc(t.fertig_sub)}</span></div>`;
@@ -234,7 +261,7 @@
           <div class="kopf">
             <span class="name">${esc(titel || "")}</span>
             <span class="zahl">${offen.length ? offen.length : ""}</span>
-            <a class="liste" href="/todo?entity_id=${encodeURIComponent(this._config.entity)}" title="${esc(t.liste)}">✏️</a>
+            <a class="liste" href="/todo?entity_id=${encodeURIComponent(this._liste)}" title="${esc(t.liste)}">✏️</a>
           </div>
           ${inhalt}
           <div class="fx"></div>
@@ -261,7 +288,7 @@
         await new Promise((r) => setTimeout(r, 450));
       }
       await this._hass.callService("todo", "update_item", {
-        entity_id: this._config.entity,
+        entity_id: this._liste,
         item: uid,
         status: fertig ? "needs_action" : "completed",
       });

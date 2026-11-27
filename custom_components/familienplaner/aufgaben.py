@@ -974,7 +974,9 @@ def _dienste_registrieren(hass: HomeAssistant) -> None:
         slug = (call.data.get("person") or "").lower() or m._slug_von_benutzer(call.context.user_id)
         if not slug or slug not in m.daten["personen"]:
             raise ServiceValidationError(_t(hass, "wer_unbekannt"))
-        await _darf_fuer(hass, m, call, slug)
+        # Ein gemeinsames Gerät (z. B. Wand-Tablet, Benutzer ohne eigene Person) darf für alle nehmen.
+        if m._slug_von_benutzer(call.context.user_id) is not None:
+            await _darf_fuer(hass, m, call, slug)
         wunsch = call.data["aufgabe"]
         a = next((x for x in m.daten["katalog"] if wunsch in (x.get("key"), x["titel"])), None)
         if a is None and not call.context.user_id:

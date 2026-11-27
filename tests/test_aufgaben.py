@@ -263,6 +263,11 @@ async def test_aufgaben_katalog(hass: HomeAssistant, planer):
                                        blocking=True, context=ben)
     with pytest.raises(ServiceValidationError):
         await hass.services.async_call(DOMAIN, "aufgabe_nehmen", {"aufgabe": "gibt es nicht"}, blocking=True, context=ben)
+    # Ein Wand-Tablet (Benutzer ohne eigene Person) darf für alle nehmen, aber keine Punkte ändern
+    tablet = await hass.auth.async_create_user("Wand-Tablet")
+    await hass.services.async_call(DOMAIN, "aufgabe_nehmen", {"aufgabe": "blumen", "person": "anna", "punkte": 99},
+                                   blocking=True, context=Context(user_id=tablet.id))
+    assert [t for t, _ in await titel("todo.anna")] == ["🪴 Water the plants +10"]
     # Anna (Admin) gibt Ben eine Aufgabe mit Extra-Punkten
     await hass.services.async_call(DOMAIN, "aufgabe_nehmen", {"aufgabe": "🐶 Walk the dog", "person": "ben", "punkte": 30},
                                    blocking=True, context=Context(user_id=planer["anna"].id))

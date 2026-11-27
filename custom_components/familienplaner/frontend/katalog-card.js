@@ -79,6 +79,26 @@
       this._render();
     }
 
+    connectedCallback() {
+      // Personenwahl am Wand-Display (familienplaner-cards.js): die gewählte Person vorauswählen
+      this._personHandler =
+        this._personHandler ||
+        ((e) => {
+          const slug = (e && e.detail && e.detail.slug) || null;
+          this._geraet = slug && slug !== "familie" ? slug : null;
+          if (this._geraet) this._person = this._geraet;
+          this._render(true);
+        });
+      window.addEventListener("familienplaner-person", this._personHandler);
+      const jetzt = window.familienplaner && window.familienplaner.person;
+      this._geraet = jetzt && jetzt !== "familie" ? jetzt : null;
+      if (this._geraet) this._person = this._geraet;
+    }
+
+    disconnectedCallback() {
+      window.removeEventListener("familienplaner-person", this._personHandler);
+    }
+
     getCardSize() {
       return 8;
     }
@@ -110,7 +130,7 @@
       const ich = fahrer.find((f) => f.user_id && f.user_id === user.id);
       const admin = !!user.is_admin;
       if (!this._person || !fahrer.some((f) => f.slug === this._person)) this._person = ich ? ich.slug : null;
-      const auswahl = admin || !ich ? fahrer : [ich];
+      const auswahl = admin || !ich || this._geraet ? fahrer : [ich];
 
       const sig = JSON.stringify([katalog, auswahl.map((f) => [f.slug, f.farbe_hex]), this._bereich, this._person, this._status, t.titel]);
       if (sig === this._sig && !erzwingen) return;
@@ -122,7 +142,7 @@
       const farbe = (person && person.farbe_hex) || "var(--primary-color)";
 
       const personen =
-        auswahl.length > 1 || !ich
+        auswahl.length > 1 || !ich || this._geraet
           ? `<div class="zeile"><span class="label">${esc(t.fuer)}</span>${auswahl
               .map(
                 (f) =>
