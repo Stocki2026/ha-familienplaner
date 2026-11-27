@@ -257,5 +257,61 @@
         }
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "rennen": {
+        "name": "Familien-Rennen"
+      },
+      "punkte": {
+        "name": "Punkte {name}"
+      },
+      "haushalt": {
+        "name": "Haushalt heute"
+      }
+    },
+    "number": {
+      "punkte_pro_aufgabe": {
+        "name": "Punkte pro Aufgabe"
+      },
+      "rennen_ziel": {
+        "name": "Rennen: Ziellinie"
+      },
+      "serien_bonus": {
+        "name": "Serien-Bonus pro Tag"
+      },
+      "sieger_bonus": {
+        "name": "Sieger-Bonus"
+      },
+      "familienziel": {
+        "name": "Familienziel"
+      }
+    },
+    "text": {
+      "familienziel_text": {
+        "name": "Familienziel: Belohnung"
+      }
+    },
+    "switch": {
+      "rotation_aktiv": {
+        "name": "Haushalts-Rotation"
+      }
+    },
+    "time": {
+      "rotation_uhrzeit": {
+        "name": "Haushalts-Rotation Uhrzeit"
+      }
+    },
+    "button": {
+      "rennen_neu": {
+        "name": "Neues Rennen starten"
+      },
+      "dienste_verteilen": {
+        "name": "Dienste jetzt verteilen"
+      },
+      "familienziel_einloesen": {
+        "name": "Familienziel einlösen"
+      }
+    }
   }
 }

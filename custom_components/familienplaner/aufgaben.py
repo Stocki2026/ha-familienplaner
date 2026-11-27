@@ -47,6 +47,7 @@ from homeassistant.core import (
 )
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError, Unauthorized
 import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dispatcher_send
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_change
 from homeassistant.helpers.storage import Store
@@ -83,14 +84,14 @@ FARBEN: dict[str, str] = {
 STANDARD_FAHRZEUGE = ["Auto", "Motorrad", "Rennwagen", "Pferd"]
 
 LEVEL = [
-    (0, "Bobbycar-Pilot"),
-    (100, "Seifenkisten-Fahrer"),
-    (250, "Kart-Talent"),
-    (500, "Rallye-Fahrer"),
-    (900, "Rennprofi"),
-    (1500, "Champion"),
-    (2500, "Legende"),
-    (4000, "Weltmeister"),
+    (0, "Bobbycar-Pilot", "Toy car pilot"),
+    (100, "Seifenkisten-Fahrer", "Soapbox racer"),
+    (250, "Kart-Talent", "Kart talent"),
+    (500, "Rallye-Fahrer", "Rally driver"),
+    (900, "Rennprofi", "Racing pro"),
+    (1500, "Champion", "Champion"),
+    (2500, "Legende", "Legend"),
+    (4000, "Weltmeister", "World champion"),
 ]
 
 STANDARD_EINSTELLUNGEN: dict[str, Any] = {
@@ -99,26 +100,90 @@ STANDARD_EINSTELLUNGEN: dict[str, Any] = {
     "serien_bonus": 5,
     "sieger_bonus": 50,
     "familienziel": 1500,
-    "familienziel_text": "Pizza- und Filmabend 🍕",
+    "familienziel_text": None,
     "rotation_aktiv": True,
     "rotation_uhrzeit": "06:30:00",
 }
 
 ALLE_TAGE = [0, 1, 2, 3, 4, 5, 6]
-STANDARD_DIENSTE: list[dict[str, Any]] = [
-    {"key": "spuelmaschine", "titel": "🍽️ Spülmaschine ausräumen", "punkte": 15, "tage": ALLE_TAGE, "versatz": 0},
-    {"key": "tisch", "titel": "🍴 Tisch decken & abräumen", "punkte": 10, "tage": ALLE_TAGE, "versatz": 1},
-    {"key": "muell", "titel": "🗑️ Müll rausbringen", "punkte": 20, "tage": [0, 3], "versatz": 0},
-]
+STANDARD_DIENSTE: dict[str, list[dict[str, Any]]] = {
+    "de": [
+        {"key": "spuelmaschine", "titel": "🍽️ Spülmaschine ausräumen", "punkte": 15, "tage": ALLE_TAGE, "versatz": 0},
+        {"key": "tisch", "titel": "🍴 Tisch decken & abräumen", "punkte": 10, "tage": ALLE_TAGE, "versatz": 1},
+        {"key": "muell", "titel": "🗑️ Müll rausbringen", "punkte": 20, "tage": [0, 3], "versatz": 0},
+    ],
+    "en": [
+        {"key": "spuelmaschine", "titel": "🍽️ Empty the dishwasher", "punkte": 15, "tage": ALLE_TAGE, "versatz": 0},
+        {"key": "tisch", "titel": "🍴 Set & clear the table", "punkte": 10, "tage": ALLE_TAGE, "versatz": 1},
+        {"key": "muell", "titel": "🗑️ Take out the trash", "punkte": 20, "tage": [0, 3], "versatz": 0},
+    ],
+}
 
-STANDARD_BELOHNUNGEN: list[dict[str, Any]] = [
-    {"name": "Eis essen", "kosten": 50, "icon": "mdi:ice-cream"},
-    {"name": "30 Min. Bildschirmzeit", "kosten": 80, "icon": "mdi:tablet"},
-    {"name": "Länger aufbleiben", "kosten": 100, "icon": "mdi:weather-night"},
-    {"name": "Spieleabend aussuchen", "kosten": 120, "icon": "mdi:dice-multiple"},
-    {"name": "Lieblingsessen", "kosten": 150, "icon": "mdi:food-drumstick"},
-    {"name": "Kino", "kosten": 400, "icon": "mdi:movie-open-outline"},
-]
+STANDARD_BELOHNUNGEN: dict[str, list[dict[str, Any]]] = {
+    "de": [
+        {"name": "Eis essen", "kosten": 50, "icon": "mdi:ice-cream"},
+        {"name": "30 Min. Bildschirmzeit", "kosten": 80, "icon": "mdi:tablet"},
+        {"name": "Länger aufbleiben", "kosten": 100, "icon": "mdi:weather-night"},
+        {"name": "Spieleabend aussuchen", "kosten": 120, "icon": "mdi:dice-multiple"},
+        {"name": "Lieblingsessen", "kosten": 150, "icon": "mdi:food-drumstick"},
+        {"name": "Kino", "kosten": 400, "icon": "mdi:movie-open-outline"},
+    ],
+    "en": [
+        {"name": "Ice cream", "kosten": 50, "icon": "mdi:ice-cream"},
+        {"name": "30 min extra screen time", "kosten": 80, "icon": "mdi:tablet"},
+        {"name": "Stay up later", "kosten": 100, "icon": "mdi:weather-night"},
+        {"name": "Pick game night", "kosten": 120, "icon": "mdi:dice-multiple"},
+        {"name": "Favourite dinner", "kosten": 150, "icon": "mdi:food-drumstick"},
+        {"name": "Cinema", "kosten": 400, "icon": "mdi:movie-open-outline"},
+    ],
+}
+
+TEXTE: dict[str, dict[str, str]] = {
+    "de": {
+        "familienziel_text": "Pizza- und Filmabend 🍕",
+        "sieg_titel": "🏁 {name} hat das Familien-Rennen gewonnen!",
+        "sieg_text": "Glückwunsch! {bonus} Bonuspunkte gehen aufs Konto.",
+        "dienst_beschreibung": "Heute bist du dran. Abhaken bringt {punkte} Punkte.",
+        "dienst_push": "🧹 Heute bist du dran",
+        "belohnung_aufgabe": "🎁 {name} löst ein: {belohnung}",
+        "belohnung_beschreibung": "{kosten} Punkte am {zeit} abgebucht. Abhaken, wenn die Belohnung erfüllt ist.",
+        "eingeloest_titel": "🎉 Belohnung eingelöst",
+        "eingeloest_text": "{name} hat „{belohnung}“ für {kosten} Punkte eingelöst. Restguthaben: {konto} Punkte.",
+        "zu_wenig_titel": "🎁 Noch nicht genug Punkte",
+        "zu_wenig_text": "{name}, für „{belohnung}“ fehlen dir noch {fehlt} Punkte. Weiter so! 💪",
+        "wer_unbekannt": "Ich konnte nicht erkennen, wer einlösen möchte. Bitte mit dem eigenen Benutzer anmelden.",
+        "person_unbekannt": "Unbekannte Person „{slug}“.",
+        "farbe_unbekannt": "Unbekannte Farbe „{farbe}“.",
+        "nicht_eingerichtet": "Der Familienplaner ist nicht eingerichtet.",
+        "start": "Start",
+    },
+    "en": {
+        "familienziel_text": "Pizza & movie night 🍕",
+        "sieg_titel": "🏁 {name} won the family race!",
+        "sieg_text": "Congratulations! {bonus} bonus points go to the account.",
+        "dienst_beschreibung": "It's your turn today. Done = {punkte} points.",
+        "dienst_push": "🧹 Your turn today",
+        "belohnung_aufgabe": "🎁 {name} redeems: {belohnung}",
+        "belohnung_beschreibung": "{kosten} points deducted on {zeit}. Check off when the reward has been granted.",
+        "eingeloest_titel": "🎉 Reward redeemed",
+        "eingeloest_text": "{name} redeemed “{belohnung}” for {kosten} points. Remaining: {konto} points.",
+        "zu_wenig_titel": "🎁 Not enough points yet",
+        "zu_wenig_text": "{name}, you still need {fehlt} points for “{belohnung}”. Keep going! 💪",
+        "wer_unbekannt": "Could not tell who wants to redeem. Please sign in with your own user.",
+        "person_unbekannt": "Unknown person “{slug}”.",
+        "farbe_unbekannt": "Unknown colour “{farbe}”.",
+        "nicht_eingerichtet": "Familienplaner is not set up.",
+        "start": "Start",
+    },
+}
+
+
+def sprache(hass: HomeAssistant) -> str:
+    return "de" if (hass.config.language or "en").lower().startswith("de") else "en"
+
+
+def _t(hass: HomeAssistant, key: str, **kw: Any) -> str:
+    return TEXTE[sprache(hass)][key].format(**kw)
 
 PUNKTE_MUSTER = re.compile(r"[+⭐]\s*(\d+)")
 
@@ -134,12 +199,13 @@ def punkte_aus_titel(titel: str, standard: int) -> int:
     return int(treffer[-1]) if treffer else int(standard)
 
 
-def level(gesamt: float) -> tuple[int, str, int | None]:
+def level(gesamt: float, sprache: str = "de") -> tuple[int, str, int | None]:
     """Level-Nummer, Name und Punkte bis zum nächsten Level."""
-    stufe, name, naechste = 1, LEVEL[0][1], None
-    for i, (minimum, n) in enumerate(LEVEL):
-        if gesamt >= minimum:
-            stufe, name = i + 1, n
+    spalte = 1 if sprache == "de" else 2
+    stufe, name, naechste = 1, LEVEL[0][spalte], None
+    for i, eintrag in enumerate(LEVEL):
+        if gesamt >= eintrag[0]:
+            stufe, name = i + 1, eintrag[spalte]
             naechste = LEVEL[i + 1][0] if i + 1 < len(LEVEL) else None
     return stufe, name, naechste
 
@@ -216,16 +282,19 @@ class AufgabenManager:
 
     async def async_laden(self) -> None:
         gespeichert = await self._store.async_load() or {}
+        lang = sprache(self.hass)
         self.daten = {
             "einstellungen": {**STANDARD_EINSTELLUNGEN, **gespeichert.get("einstellungen", {})},
             "personen": gespeichert.get("personen", {}),
             "familienpunkte": gespeichert.get("familienpunkte", 0),
             "sieger": gespeichert.get("sieger", ""),
             "gedaechtnis": gespeichert.get("gedaechtnis", {}),
-            "dienste": gespeichert.get("dienste") or deepcopy(STANDARD_DIENSTE),
-            "belohnungen": gespeichert.get("belohnungen") or deepcopy(STANDARD_BELOHNUNGEN),
+            "dienste": gespeichert.get("dienste") or deepcopy(STANDARD_DIENSTE[lang]),
+            "belohnungen": gespeichert.get("belohnungen") or deepcopy(STANDARD_BELOHNUNGEN[lang]),
             "rotation": gespeichert.get("rotation", {"zaehler": {}, "zuletzt": {}, "datum": None}),
         }
+        if not self.daten["einstellungen"].get("familienziel_text"):
+            self.daten["einstellungen"]["familienziel_text"] = TEXTE[lang]["familienziel_text"]
         for i, p in enumerate(self.personen):
             self.daten["personen"].setdefault(p.slug, _leerer_stand(p, i))
 
@@ -337,7 +406,7 @@ class AufgabenManager:
 
     async def async_buchen(self, slug: str, punkte: int, aufgaben: int = 0) -> None:
         if slug not in self.daten["personen"]:
-            raise ServiceValidationError(f"Unbekannte Person „{slug}“.")
+            raise ServiceValidationError(_t(self.hass, "person_unbekannt", slug=slug))
         st = self.stand(slug)
         for feld in ("rennen", "konto", "gesamt"):
             st[feld] = max(0, st[feld] + punkte)
@@ -356,7 +425,7 @@ class AufgabenManager:
         self.daten["sieger"] = name
         self.stand(slug)["konto"] += bonus
         await self.coord.async_benachrichtigen(
-            FAMILY, f"🏁 {name} hat das Familien-Rennen gewonnen!", f"Glückwunsch! {bonus} Bonuspunkte gehen aufs Konto."
+            FAMILY, _t(self.hass, "sieg_titel", name=name), _t(self.hass, "sieg_text", bonus=bonus)
         )
 
     # ----------------------------------------------------------------- Zeitpläne
@@ -396,7 +465,7 @@ class AufgabenManager:
                     "todo", "add_item",
                     {"entity_id": person.todo_entity, "item": f"{d['titel']} +{d['punkte']}",
                      "due_date": heute.isoformat(),
-                     "description": f"Heute bist du dran. Abhaken bringt {d['punkte']} Punkte."},
+                     "description": _t(self.hass, "dienst_beschreibung", punkte=d["punkte"])},
                     blocking=True,
                 )
             except HomeAssistantError as err:
@@ -406,7 +475,7 @@ class AufgabenManager:
         rot["datum"] = heute.isoformat()
         for slug in {v["person"] for v in verteilt}:
             titel = ", ".join(v["dienst"] for v in verteilt if v["person"] == slug)
-            await self.coord.async_benachrichtigen(slug, "🧹 Heute bist du dran", titel)
+            await self.coord.async_benachrichtigen(slug, _t(self.hass, "dienst_push"), titel)
         self._geaendert()
         return verteilt
 
@@ -421,9 +490,9 @@ class AufgabenManager:
         if familie:
             await self.hass.services.async_call(
                 "todo", "add_item",
-                {"entity_id": familie, "item": f"🎁 {name} löst ein: {belohnung}",
-                 "description": f"{kosten} Punkte am {dt_util.now():%d.%m.%Y um %H:%M} abgebucht. "
-                                "Abhaken, wenn die Belohnung erfüllt ist."},
+                {"entity_id": familie, "item": _t(self.hass, "belohnung_aufgabe", name=name, belohnung=belohnung),
+                 "description": _t(self.hass, "belohnung_beschreibung", kosten=kosten,
+                                   zeit=f"{dt_util.now():%d.%m.%Y %H:%M}")},
                 blocking=True,
             )
             # Diese Aufgabe soll beim Abhaken keine Punkte bringen.
@@ -454,7 +523,7 @@ class AufgabenManager:
             st = self.daten["personen"].get(p.slug)
             if not st:
                 continue
-            stufe, lname, naechste = level(st["gesamt"])
+            stufe, lname, naechste = level(st["gesamt"], sprache(self.hass))
             fahrer.append({
                 "slug": p.slug,
                 "name": p.name,
@@ -489,7 +558,18 @@ class AufgabenManager:
             "belohnungen": self.daten["belohnungen"],
             "dienste": self.dienste_attribute(),
             "familien_liste": self.coord.opt.get(CONF_FAMILY_TODO),
+            "entitaeten": self.entitaeten(),
         }
+
+    def entitaeten(self) -> dict[str, str]:
+        """Entitäts-IDs der eigenen Entitäten (für das Dashboard, sprachunabhängig)."""
+        reg = er.async_get(self.hass)
+        aus: dict[str, str] = {}
+        for eintrag in er.async_entries_for_config_entry(reg, self.entry.entry_id):
+            praefix = f"{self.entry.entry_id}_aufgaben_"
+            if eintrag.unique_id.startswith(praefix):
+                aus[eintrag.unique_id.removeprefix(praefix)] = eintrag.entity_id
+        return aus
 
     def dienste_attribute(self) -> list[dict[str, Any]]:
         rot = self.daten["rotation"]
@@ -549,7 +629,7 @@ def _manager(hass: HomeAssistant) -> AufgabenManager:
         m = getattr(entry.runtime_data, "aufgaben", None)
         if m:
             return m
-    raise ServiceValidationError("Der Familienplaner ist nicht eingerichtet.")
+    raise ServiceValidationError(_t(hass, "nicht_eingerichtet"))
 
 
 async def _darf_fuer(hass: HomeAssistant, m: AufgabenManager, call: ServiceCall, slug: str) -> None:
@@ -581,24 +661,20 @@ def _dienste_registrieren(hass: HomeAssistant) -> None:
         m = _manager(hass)
         slug = (call.data.get("person") or "").lower() or m._slug_von_benutzer(call.context.user_id)
         if not slug or slug not in m.daten["personen"]:
-            raise ServiceValidationError("Ich konnte nicht erkennen, wer einlösen möchte. Bitte mit dem eigenen Benutzer anmelden.")
+            raise ServiceValidationError(_t(hass, "wer_unbekannt"))
         await _darf_fuer(hass, m, call, slug)
         name = m.coord.namen.get(slug, slug.capitalize())
         ergebnis = await m.async_einloesen(call.data["belohnung"], call.data["kosten"], slug)
+        b, k = call.data["belohnung"], call.data["kosten"]
         if ergebnis["ok"]:
             persistent_notification.async_create(
-                hass,
-                f"{name} hat „{call.data['belohnung']}“ für {call.data['kosten']} Punkte eingelöst. "
-                f"Restguthaben: {ergebnis['konto']} Punkte.",
-                title="🎉 Belohnung eingelöst",
-                notification_id=f"{DOMAIN}_belohnung_{slug}",
+                hass, _t(hass, "eingeloest_text", name=name, belohnung=b, kosten=k, konto=ergebnis["konto"]),
+                title=_t(hass, "eingeloest_titel"), notification_id=f"{DOMAIN}_belohnung_{slug}",
             )
         else:
             persistent_notification.async_create(
-                hass,
-                f"{name}, für „{call.data['belohnung']}“ fehlen dir noch {ergebnis['fehlt']} Punkte. Weiter so! 💪",
-                title="🎁 Noch nicht genug Punkte",
-                notification_id=f"{DOMAIN}_belohnung_{slug}",
+                hass, _t(hass, "zu_wenig_text", name=name, belohnung=b, fehlt=ergebnis["fehlt"]),
+                title=_t(hass, "zu_wenig_titel"), notification_id=f"{DOMAIN}_belohnung_{slug}",
             )
         return ergebnis
 
@@ -606,7 +682,7 @@ def _dienste_registrieren(hass: HomeAssistant) -> None:
         m = _manager(hass)
         slug = call.data["person"].lower()
         if slug not in m.daten["personen"]:
-            raise ServiceValidationError(f"Unbekannte Person „{slug}“.")
+            raise ServiceValidationError(_t(hass, "person_unbekannt", slug=slug))
         await _darf_fuer(hass, m, call, slug)
         st = m.stand(slug)
         if "fahrzeug" in call.data:
@@ -614,7 +690,7 @@ def _dienste_registrieren(hass: HomeAssistant) -> None:
         if "farbe" in call.data:
             farbe = call.data["farbe"].strip()
             if farbe not in FARBEN and not re.fullmatch(r"#[0-9a-fA-F]{6}", farbe):
-                raise ServiceValidationError(f"Unbekannte Farbe „{farbe}“.")
+                raise ServiceValidationError(_t(hass, "farbe_unbekannt", farbe=farbe))
             st["farbe"] = farbe
         m._geaendert()
 
@@ -666,12 +742,11 @@ def _dienste_registrieren(hass: HomeAssistant) -> None:
 class _AufgabenEntity(FamilienplanerEntity):
     """Basis: aktualisiert sich bei jeder Punkte-Änderung."""
 
-    def __init__(self, coord: FamilienplanerCoordinator, key: str, name: str, icon: str) -> None:
+    def __init__(self, coord: FamilienplanerCoordinator, key: str, translation_key: str, icon: str) -> None:
         super().__init__(coord, f"aufgaben_{key}")
         self.m: AufgabenManager = coord.aufgaben  # type: ignore[attr-defined]
-        self._attr_name = name
+        self._attr_translation_key = translation_key
         self._attr_icon = icon
-        self._attr_translation_key = None
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
@@ -682,7 +757,7 @@ class RennenSensor(_AufgabenEntity, SensorEntity):
     """Alles für die Rennstrecken-Karte in einer Entität."""
 
     def __init__(self, coord) -> None:
-        super().__init__(coord, "rennen", "Familien-Rennen", "mdi:flag-checkered")
+        super().__init__(coord, "rennen", "rennen", "mdi:flag-checkered")
 
     @property
     def native_value(self) -> str:
@@ -690,7 +765,7 @@ class RennenSensor(_AufgabenEntity, SensorEntity):
             return self.m.daten["sieger"]
         fahrer = [(st["rennen"], p.name) for p in self.m.personen if (st := self.m.daten["personen"].get(p.slug))]
         if not fahrer or max(fahrer)[0] <= 0:
-            return "Start"
+            return _t(self.hass, "start")
         return max(fahrer)[1]
 
     @property
@@ -705,7 +780,8 @@ class PunkteSensor(_AufgabenEntity, SensorEntity):
     _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, coord, p: Person) -> None:
-        super().__init__(coord, f"punkte_{p.slug}", f"Punkte {p.name}", "mdi:star-circle-outline")
+        super().__init__(coord, f"punkte_{p.slug}", "punkte", "mdi:star-circle-outline")
+        self._attr_translation_placeholders = {"name": p.name}
         self.slug = p.slug
 
     @property
@@ -715,7 +791,7 @@ class PunkteSensor(_AufgabenEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         st = self.m.daten["personen"].get(self.slug, {})
-        stufe, name, _ = level(st.get("gesamt", 0))
+        stufe, name, _ = level(st.get("gesamt", 0), sprache(self.hass))
         return {k: st.get(k) for k in ("rennen", "gesamt", "heute", "woche", "serie", "fahrzeug", "farbe")} | {
             "level": stufe, "level_name": name,
         }
@@ -723,7 +799,7 @@ class PunkteSensor(_AufgabenEntity, SensorEntity):
 
 class HaushaltSensor(_AufgabenEntity, SensorEntity):
     def __init__(self, coord) -> None:
-        super().__init__(coord, "haushalt", "Haushalt heute", "mdi:home-heart")
+        super().__init__(coord, "haushalt", "haushalt", "mdi:home-heart")
 
     @property
     def native_value(self) -> str:
@@ -737,11 +813,11 @@ class HaushaltSensor(_AufgabenEntity, SensorEntity):
 
 
 EINSTELLUNG_ZAHLEN = [
-    ("punkte_pro_aufgabe", "Punkte pro Aufgabe", "mdi:star-circle", 0, 500, 1),
-    ("rennen_ziel", "Rennen: Ziellinie", "mdi:flag-checkered", 10, 100000, 10),
-    ("serien_bonus", "Serien-Bonus pro Tag", "mdi:fire", 0, 500, 1),
-    ("sieger_bonus", "Sieger-Bonus", "mdi:trophy", 0, 5000, 5),
-    ("familienziel", "Familienziel", "mdi:account-group", 10, 1000000, 10),
+    ("punkte_pro_aufgabe", "mdi:star-circle", 0, 500, 1),
+    ("rennen_ziel", "mdi:flag-checkered", 10, 100000, 10),
+    ("serien_bonus", "mdi:fire", 0, 500, 1),
+    ("sieger_bonus", "mdi:trophy", 0, 5000, 5),
+    ("familienziel", "mdi:account-group", 10, 1000000, 10),
 ]
 
 
@@ -750,8 +826,8 @@ class EinstellungNumber(_AufgabenEntity, NumberEntity):
     _attr_mode = NumberMode.BOX
     _attr_native_unit_of_measurement = "Punkte"
 
-    def __init__(self, coord, key, name, icon, mn, mx, step) -> None:
-        super().__init__(coord, key, name, icon)
+    def __init__(self, coord, key, icon, mn, mx, step) -> None:
+        super().__init__(coord, key, key, icon)
         self.key = key
         self._attr_native_min_value, self._attr_native_max_value, self._attr_native_step = mn, mx, step
 
@@ -768,7 +844,7 @@ class FamilienzielText(_AufgabenEntity, TextEntity):
     _attr_native_max = 100
 
     def __init__(self, coord) -> None:
-        super().__init__(coord, "familienziel_text", "Familienziel: Belohnung", "mdi:gift-outline")
+        super().__init__(coord, "familienziel_text", "familienziel_text", "mdi:gift-outline")
 
     @property
     def native_value(self) -> str:
@@ -782,7 +858,7 @@ class RotationSwitch(_AufgabenEntity, SwitchEntity):
     _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(self, coord) -> None:
-        super().__init__(coord, "rotation_aktiv", "Haushalts-Rotation", "mdi:autorenew")
+        super().__init__(coord, "rotation_aktiv", "rotation_aktiv", "mdi:autorenew")
 
     @property
     def is_on(self) -> bool:
@@ -799,7 +875,7 @@ class RotationTime(_AufgabenEntity, TimeEntity):
     _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(self, coord) -> None:
-        super().__init__(coord, "rotation_uhrzeit", "Haushalts-Rotation Uhrzeit", "mdi:clock-outline")
+        super().__init__(coord, "rotation_uhrzeit", "rotation_uhrzeit", "mdi:clock-outline")
 
     @property
     def native_value(self) -> time:
@@ -810,8 +886,8 @@ class RotationTime(_AufgabenEntity, TimeEntity):
 
 
 class AktionButton(_AufgabenEntity, ButtonEntity):
-    def __init__(self, coord, key, name, icon, aktion: Callable[[AufgabenManager], Any]) -> None:
-        super().__init__(coord, key, name, icon)
+    def __init__(self, coord, key, icon, aktion: Callable[[AufgabenManager], Any]) -> None:
+        super().__init__(coord, key, key, icon)
         self._aktion = aktion
 
     async def async_press(self) -> None:
@@ -833,11 +909,9 @@ def entitaeten(coord: FamilienplanerCoordinator, plattform: str) -> list:
         return [RotationTime(coord)]
     if plattform == "button":
         return [
-            AktionButton(coord, "rennen_neu", "Neues Rennen starten", "mdi:flag-variant-outline", lambda m: m.rennen_neu()),
-            AktionButton(coord, "dienste_verteilen", "Dienste jetzt verteilen", "mdi:autorenew",
-                         lambda m: m.async_dienste_verteilen()),
-            AktionButton(coord, "familienziel_einloesen", "Familienziel einlösen", "mdi:party-popper",
-                         lambda m: m.familienziel_einloesen()),
+            AktionButton(coord, "rennen_neu", "mdi:flag-variant-outline", lambda m: m.rennen_neu()),
+            AktionButton(coord, "dienste_verteilen", "mdi:autorenew", lambda m: m.async_dienste_verteilen()),
+            AktionButton(coord, "familienziel_einloesen", "mdi:party-popper", lambda m: m.familienziel_einloesen()),
         ]
     return []
 

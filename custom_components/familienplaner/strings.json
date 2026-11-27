@@ -257,5 +257,61 @@
         }
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "rennen": {
+        "name": "Family race"
+      },
+      "punkte": {
+        "name": "Points {name}"
+      },
+      "haushalt": {
+        "name": "Chores today"
+      }
+    },
+    "number": {
+      "punkte_pro_aufgabe": {
+        "name": "Points per task"
+      },
+      "rennen_ziel": {
+        "name": "Race: finish line"
+      },
+      "serien_bonus": {
+        "name": "Streak bonus per day"
+      },
+      "sieger_bonus": {
+        "name": "Winner bonus"
+      },
+      "familienziel": {
+        "name": "Family goal"
+      }
+    },
+    "text": {
+      "familienziel_text": {
+        "name": "Family goal: reward"
+      }
+    },
+    "switch": {
+      "rotation_aktiv": {
+        "name": "Chore rotation"
+      }
+    },
+    "time": {
+      "rotation_uhrzeit": {
+        "name": "Chore rotation time"
+      }
+    },
+    "button": {
+      "rennen_neu": {
+        "name": "Start new race"
+      },
+      "dienste_verteilen": {
+        "name": "Assign chores now"
+      },
+      "familienziel_einloesen": {
+        "name": "Redeem family goal"
+      }
+    }
   }
 }
