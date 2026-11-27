@@ -65,24 +65,89 @@ const RC_FARBEN = {
 };
 
 const RC_LEVEL = [
-  [0, "Bobbycar-Pilot"],
-  [100, "Seifenkisten-Fahrer"],
-  [250, "Kart-Talent"],
-  [500, "Rallye-Fahrer"],
-  [900, "Rennprofi"],
-  [1500, "Champion"],
-  [2500, "Legende"],
-  [4000, "Weltmeister"],
+  [0, "Bobbycar-Pilot", "Toy car pilot"],
+  [100, "Seifenkisten-Fahrer", "Soapbox racer"],
+  [250, "Kart-Talent", "Kart talent"],
+  [500, "Rallye-Fahrer", "Rally driver"],
+  [900, "Rennprofi", "Racing pro"],
+  [1500, "Champion", "Champion"],
+  [2500, "Legende", "Legend"],
+  [4000, "Weltmeister", "World champion"],
 ];
 
-function rcLevel(total) {
+/* Texte: Deutsch und Englisch (folgt der Sprache von Home Assistant) */
+const RC_TEXTE = {
+  de: {
+    titel: "Familien-Rennen",
+    fahrer: (n) => `Fahrer ${n}`,
+    leer_keine: "Noch keine Personen mit Aufgabenliste eingerichtet.",
+    leer_kein_rennen: "Kein Rennen gefunden. Ist der Familienplaner eingerichtet?",
+    ziel: (z) => `Ziel ${z} Punkte`,
+    beendet: "Rennen beendet",
+    fuehrt: (n, f) => `${n} führt${f ? `, noch ${f} bis zur Ziellinie` : ""}`,
+    erste: "Wer hakt die erste Aufgabe ab?",
+    gewonnen: (n) => `${n} hat das Rennen gewonnen!`,
+    tage: (n) => `${n} ${n === 1 ? "Tag" : "Tage"}`,
+    heute: (n) => `heute ${n} ✓`,
+    konto: (n) => `Konto ${n}`,
+    punkte: "Punkte",
+    punkte_von: (n, p) => `${n}: ${p} Punkte`,
+    tippen: "Tippen: Fahrzeug und Farbe wählen",
+    familienziel: (t) => `Gemeinsames Ziel: ${t}`,
+    familien_belohnung: "Familien-Belohnung",
+    garage: (n) => `Garage von ${n}`,
+    garage_sub: "Fahrzeug und Farbe wählen",
+    schliessen: "Schließen",
+    fahrzeug: "Fahrzeug",
+    farbe: "Farbe",
+  },
+  en: {
+    titel: "Family race",
+    fahrer: (n) => `Driver ${n}`,
+    leer_keine: "No people with a to-do list set up yet.",
+    leer_kein_rennen: "No race found. Is Familienplaner set up?",
+    ziel: (z) => `Finish ${z} points`,
+    beendet: "Race finished",
+    fuehrt: (n, f) => `${n} leads${f ? `, ${f} to the finish line` : ""}`,
+    erste: "Who checks off the first task?",
+    gewonnen: (n) => `${n} won the race!`,
+    tage: (n) => `${n} ${n === 1 ? "day" : "days"}`,
+    heute: (n) => `today ${n} ✓`,
+    konto: (n) => `Account ${n}`,
+    punkte: "Points",
+    punkte_von: (n, p) => `${n}: ${p} points`,
+    tippen: "Tap to choose vehicle and colour",
+    familienziel: (t) => `Family goal: ${t}`,
+    familien_belohnung: "Family reward",
+    garage: (n) => `${n}'s garage`,
+    garage_sub: "Choose vehicle and colour",
+    schliessen: "Close",
+    fahrzeug: "Vehicle",
+    farbe: "Colour",
+  },
+};
+const RC_NAMEN_EN = {
+  Auto: "Car", Rennwagen: "Race car", Motorrad: "Motorbike", Pferd: "Horse", Einhorn: "Unicorn", Fahrrad: "Bicycle",
+  Traktor: "Tractor", Rakete: "Rocket", Blau: "Blue", Pink: "Pink", Orange: "Orange", "Grün": "Green", Rot: "Red",
+  Gelb: "Yellow", Lila: "Purple", "Türkis": "Turquoise", Braun: "Brown", Grau: "Grey", Schwarz: "Black",
+  "Weiß": "White", Gold: "Gold", Silber: "Silver",
+};
+
+function rcSprache(hass) {
+  const l = (hass && ((hass.locale && hass.locale.language) || hass.language)) || "de";
+  return String(l).toLowerCase().startsWith("de") ? "de" : "en";
+}
+
+function rcLevel(total, sprache = "de") {
+  const spalte = sprache === "de" ? 1 : 2;
   let lvl = 1;
-  let name = RC_LEVEL[0][1];
+  let name = RC_LEVEL[0][spalte];
   let next = null;
-  RC_LEVEL.forEach(([min, n], i) => {
+  RC_LEVEL.forEach((eintrag, i) => {
+    const min = eintrag[0];
     if (total >= min) {
       lvl = i + 1;
-      name = n;
+      name = eintrag[spalte];
       next = RC_LEVEL[i + 1] ? RC_LEVEL[i + 1][0] : null;
     }
   });
@@ -137,7 +202,7 @@ class RennstreckeCard extends HTMLElement {
   }
 
   static getStubConfig() {
-    return { title: "Familien-Rennen" };
+    return {};
   }
 
   setConfig(config) {
@@ -153,9 +218,17 @@ class RennstreckeCard extends HTMLElement {
       });
     }
     this._rohConfig = config;
-    this._config = { title: "Familien-Rennen", ziel: 500, ...config, fahrer: this._entityMode ? [] : config.fahrer };
+    this._config = { ziel: 500, ...config, fahrer: this._entityMode ? [] : config.fahrer };
     this._built = false;
     if (this._hass) this._update();
+  }
+
+  get _t() {
+    return RC_TEXTE[rcSprache(this._hass)];
+  }
+
+  _label(o) {
+    return rcSprache(this._hass) === "de" ? o : RC_NAMEN_EN[o] || o;
   }
 
   _findeEntity() {
@@ -194,7 +267,6 @@ class RennstreckeCard extends HTMLElement {
     }
     this._optionen = { fahrzeuge: a.fahrzeuge || [], farben: Object.keys(a.farben || {}) };
     this._config = {
-      title: "Familien-Rennen",
       ...this._rohConfig,
       ziel: Number(a.ziel) || 500,
       sieger: a.sieger || "",
@@ -264,7 +336,7 @@ class RennstreckeCard extends HTMLElement {
       return {
         i,
         cfg: f,
-        name: f.name || personName || `Fahrer ${i + 1}`,
+        name: f.name || personName || this._t.fahrer(i + 1),
         punkte,
         pct: Math.min(1, punkte / ziel),
         fz: rcFahrzeug(fzText),
@@ -274,7 +346,7 @@ class RennstreckeCard extends HTMLElement {
         serie: f.serie ? rcNum(hass, f.serie, 0) : null,
         heute: f.heute ? rcNum(hass, f.heute, 0) : null,
         konto: f.konto ? rcNum(hass, f.konto, 0) : null,
-        level: gesamt !== null ? { ...rcLevel(gesamt), gesamt } : null,
+        level: gesamt !== null ? { ...rcLevel(gesamt, rcSprache(hass)), gesamt } : null,
         darf: this._darf(f),
       };
     });
@@ -361,27 +433,28 @@ class RennstreckeCard extends HTMLElement {
     if (!this._sync()) {
       this._built = false;
       this.shadowRoot.innerHTML = `<style>${RennstreckeCard.styles}</style><ha-card><div class="leer">${rcSvg("flagge")}
-        <b>Familien-Rennen</b><span>${this._eid ? "Noch keine Personen mit Aufgabenliste eingerichtet." : "Kein Rennen gefunden. Ist der Familienplaner eingerichtet?"}</span></div></ha-card>`;
+        <b>${rcEsc(this._config.title || this._t.titel)}</b><span>${this._eid ? this._t.leer_keine : this._t.leer_kein_rennen}</span></div></ha-card>`;
       return;
     }
     if (!this._built) this._build();
     const root = this.shadowRoot;
     const c = this._config;
     const d = this._daten();
+    const t = this._t;
 
-    root.querySelector(".title").textContent = c.title;
+    root.querySelector(".title").textContent = c.title || t.titel;
     const leader = d.rang[0];
     const fehlt = Math.max(0, Math.ceil(d.ziel - leader.punkte));
     root.querySelector(".sub").textContent =
       leader.punkte > 0
         ? d.sieger
-          ? `Ziel ${d.ziel} Punkte · Rennen beendet`
-          : `Ziel ${d.ziel} Punkte · ${leader.name} führt${fehlt ? `, noch ${fehlt} bis zur Ziellinie` : ""}`
-        : `Ziel ${d.ziel} Punkte · Wer hakt die erste Aufgabe ab?`;
+          ? `${t.ziel(d.ziel)} · ${t.beendet}`
+          : `${t.ziel(d.ziel)} · ${t.fuehrt(leader.name, fehlt)}`
+        : `${t.ziel(d.ziel)} · ${t.erste}`;
 
     const banner = root.querySelector(".banner");
     banner.hidden = !d.sieger;
-    banner.querySelector("span").textContent = d.sieger ? `${d.sieger} hat das Rennen gewonnen!` : "";
+    banner.querySelector("span").textContent = d.sieger ? t.gewonnen(d.sieger) : "";
     if (d.sieger && this._prev.sieger !== undefined && this._prev.sieger !== d.sieger) this._confetti(40);
     this._prev.sieger = d.sieger;
 
@@ -394,7 +467,7 @@ class RennstreckeCard extends HTMLElement {
       car.classList.toggle("gallop", !!f.fz.gallop);
       car.classList.toggle("leader", f.fuehrt);
       car.classList.toggle("finished", f.pct >= 1);
-      car.title = `${f.name}: ${f.punkte} Punkte`;
+      car.title = t.punkte_von(f.name, f.punkte);
       const key = `${f.fzText}|${f.farbe}`;
       if (car.dataset.key !== key) {
         car.querySelector(".body").innerHTML = rcVehicleSvg(f.fz);
@@ -419,12 +492,12 @@ class RennstreckeCard extends HTMLElement {
       chip.querySelector(".chip-name").textContent = `${f.platz}. ${f.name}`;
       const sub = [];
       if (f.level) sub.push(`Lv ${f.level.lvl} ${f.level.name}`);
-      if (f.serie) sub.push(`🔥 ${f.serie} ${f.serie === 1 ? "Tag" : "Tage"}`);
-      if (f.heute !== null) sub.push(`heute ${f.heute} ✓`);
+      if (f.serie) sub.push(`🔥 ${t.tage(f.serie)}`);
+      if (f.heute !== null) sub.push(t.heute(f.heute));
       chip.querySelector(".chip-sub").textContent = sub.join(" · ");
       chip.querySelector(".chip-pts").innerHTML =
-        `${Math.round(f.punkte)}<small>${f.konto !== null ? `Konto ${Math.round(f.konto)}` : "Punkte"}</small>`;
-      chip.title = f.darf ? "Tippen: Fahrzeug und Farbe wählen" : `${f.name}: ${f.punkte} Punkte`;
+        `${Math.round(f.punkte)}<small>${f.konto !== null ? t.konto(Math.round(f.konto)) : t.punkte}</small>`;
+      chip.title = f.darf ? t.tippen : t.punkte_von(f.name, f.punkte);
     });
 
     // Gemeinsames Familienziel
@@ -432,9 +505,9 @@ class RennstreckeCard extends HTMLElement {
     if (c.familienziel && c.familienpunkte) {
       const zielF = Math.max(1, rcNum(this._hass, c.familienziel, 1000));
       const istF = rcNum(this._hass, c.familienpunkte, 0);
-      const text = this._state(c.familienziel_text) || "Familien-Belohnung";
+      const text = this._state(c.familienziel_text) || t.familien_belohnung;
       fam.hidden = false;
-      fam.querySelector(".family-txt").textContent = `Gemeinsames Ziel: ${text}`;
+      fam.querySelector(".family-txt").textContent = t.familienziel(text);
       fam.querySelector(".family-num").textContent = `${Math.round(istF)} / ${Math.round(zielF)}`;
       fam.querySelector(".fill").style.width = `${Math.min(100, (istF / zielF) * 100)}%`;
       fam.classList.toggle("done", istF >= zielF);
@@ -491,6 +564,7 @@ class RennstreckeCard extends HTMLElement {
   }
 
   _renderGarage() {
+    const t = this._t;
     const i = this._garage;
     const f = this._config.fahrer[i];
     const d = this._daten().fahrer[i];
@@ -508,30 +582,30 @@ class RennstreckeCard extends HTMLElement {
     }
 
     g.innerHTML = `
-      <div class="g-box" role="dialog" aria-label="Garage von ${rcEsc(d.name)}">
+      <div class="g-box" role="dialog" aria-label="${rcEsc(t.garage(d.name))}">
         <div class="g-head">
           <div class="g-preview" style="--c:${d.farbe}">${rcVehicleSvg(d.fz)}</div>
-          <div><b>Garage von ${rcEsc(d.name)}</b><small>Fahrzeug und Farbe wählen</small></div>
-          <button class="g-close" aria-label="Schließen">${rcSvg("schliessen")}</button>
+          <div><b>${rcEsc(t.garage(d.name))}</b><small>${t.garage_sub}</small></div>
+          <button class="g-close" aria-label="${t.schliessen}">${rcSvg("schliessen")}</button>
         </div>
-        <div class="g-label">Fahrzeug</div>
+        <div class="g-label">${t.fahrzeug}</div>
         <div class="g-grid">
           ${fzOpts
             .map((o) => {
               const sel = o === d.fzText;
               return `<button class="g-opt ${sel ? "sel" : ""}" data-fz="${rcEsc(o)}" style="--c:${d.farbe}">
-                ${rcVehicleSvg(rcFahrzeug(o))}<span>${rcEsc(o)}</span></button>`;
+                ${rcVehicleSvg(rcFahrzeug(o))}<span>${rcEsc(this._label(o))}</span></button>`;
             })
             .join("")}
         </div>
         ${
           faOpts.length
-            ? `<div class="g-label">Farbe</div>
+            ? `<div class="g-label">${t.farbe}</div>
         <div class="g-colors">
           ${faOpts
             .map((o) => {
               const sel = o === d.farbeText;
-              return `<button class="g-col ${sel ? "sel" : ""}" data-fa="${rcEsc(o)}" style="--c:${rcFarbe(o)}" title="${rcEsc(o)}">
+              return `<button class="g-col ${sel ? "sel" : ""}" data-fa="${rcEsc(o)}" style="--c:${rcFarbe(o)}" title="${rcEsc(this._label(o))}">
                 ${sel ? rcSvg("haken") : ""}</button>`;
             })
             .join("")}

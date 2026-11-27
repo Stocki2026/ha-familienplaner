@@ -1,34 +1,78 @@
 /*
- * Familienplaner – Ansicht „Aufgaben“ (Punkte, Familien-Rennen, Haushalt, Belohnungen)
+ * Familienplaner – Ansicht „Aufgaben“ / "Tasks" view (Punkte, Familien-Rennen, Haushalt, Belohnungen)
  *
  * Hängt sich an die Dashboard-Strategie „custom:familienplaner“ an und baut die Ansicht
- * komplett aus den Daten der Integration. Keine Konfiguration nötig.
+ * komplett aus den Daten der Integration. Keine Konfiguration nötig. Deutsch und Englisch.
  */
 
 (() => {
-  const BLAU = "#5F7F63";
+  const FARBE = "#5F7F63";
 
-  function entities(hass, domain) {
-    const reg = hass.entities || {};
-    return Object.keys(hass.states).filter(
-      (id) => id.startsWith(domain + ".") && (!Object.keys(reg).length || (reg[id] && reg[id].platform === "familienplaner"))
-    );
+  const TEXTE = {
+    de: {
+      titel: "Aufgaben",
+      hallo: "Hallo",
+      konto_satz: "Du hast **{{ f.konto }} Punkte** auf dem Konto",
+      heute_satz: " und heute schon **{{ f.heute }} {{ 'Aufgabe' if f.heute == 1 else 'Aufgaben' }}** geschafft",
+      serie_satz: " 🔥 {{ f.serie }} Tage in Folge!",
+      gast: "Hake Aufgaben ab und sammle Punkte fürs Familien-Rennen.",
+      tipp: "Tipp: Schreib „+20“ in den Titel einer Aufgabe, dann bringt sie 20 Punkte. Tippe auf dein Fahrzeug, um es umzubauen.",
+      haushalt: "Haushalt heute",
+      nicht_verteilt: "noch nicht verteilt",
+      punkte: "Punkte",
+      keine_dienste: "Heute stehen keine Dienste an.",
+      familie: "Familie",
+      shop: "Belohnungs-Shop",
+      dein_konto: "Dein Konto: **{{ f[0].konto }} Punkte**. ",
+      shop_text: "Tippen zum Einlösen. Die Punkte werden abgebucht und in der Familienliste erscheint eine Aufgabe für die Eltern.",
+      einloesen: (b, k) => `${b} für ${k} Punkte einlösen?`,
+      eltern: "Eltern-Bereich",
+      regeln: "Spielregeln",
+      rotation: "Haushalts-Rotation",
+    },
+    en: {
+      titel: "Tasks",
+      hallo: "Hello",
+      konto_satz: "You have **{{ f.konto }} points** in your account",
+      heute_satz: " and already finished **{{ f.heute }} {{ 'task' if f.heute == 1 else 'tasks' }}** today",
+      serie_satz: " 🔥 {{ f.serie }} days in a row!",
+      gast: "Check off tasks and collect points for the family race.",
+      tipp: "Tip: write “+20” in a task title and it is worth 20 points. Tap your vehicle to customise it.",
+      haushalt: "Chores today",
+      nicht_verteilt: "not assigned yet",
+      punkte: "points",
+      keine_dienste: "No chores today.",
+      familie: "Family",
+      shop: "Reward shop",
+      dein_konto: "Your account: **{{ f[0].konto }} points**. ",
+      shop_text: "Tap to redeem. The points are deducted and a task for the parents appears in the family list.",
+      einloesen: (b, k) => `Redeem ${b} for ${k} points?`,
+      eltern: "Parents",
+      regeln: "Rules",
+      rotation: "Chore rotation",
+    },
+  };
+
+  function sprache(hass) {
+    const l = (hass && ((hass.locale && hass.locale.language) || hass.language)) || "de";
+    return String(l).toLowerCase().startsWith("de") ? "de" : "en";
   }
 
-  function finde(hass, domain, name) {
-    return entities(hass, domain).find((id) => {
-      const fn = (hass.states[id].attributes.friendly_name || "").toLowerCase();
-      return fn === name.toLowerCase() || fn.endsWith(" " + name.toLowerCase());
+  function rennenFinden(hass) {
+    const reg = hass.entities || {};
+    const ids = Object.keys(hass.states).filter((id) => {
+      const a = hass.states[id].attributes;
+      return id.startsWith("sensor.") && Array.isArray(a.fahrer) && a.entitaeten && Array.isArray(a.dienste);
     });
+    return ids.find((id) => reg[id] && reg[id].platform === "familienplaner") || ids[0];
   }
 
   function aufgabenView(u, hass, { theme }) {
-    const rennen = entities(hass, "sensor").find((id) => {
-      const a = hass.states[id].attributes;
-      return Array.isArray(a.fahrer) && a.ziel !== undefined && Array.isArray(a.dienste);
-    });
+    const t = TEXTE[sprache(hass)];
+    const rennen = rennenFinden(hass);
     if (!rennen) return null;
     const a = hass.states[rennen].attributes;
+    const id = (key) => (a.entitaeten || {})[key];
     const fahrer = a.fahrer || [];
     const sections = [];
 
@@ -42,12 +86,10 @@
           text_only: true,
           content:
             `{% set f = state_attr('${rennen}', 'fahrer') | selectattr('name', 'eq', user) | list %}` +
-            "## Hallo {{ user }} 🏁\n" +
-            "{% if f %}{% set f = f[0] %}Du hast **{{ f.konto }} Punkte** auf dem Konto" +
-            "{% if f.heute %} und heute schon **{{ f.heute }} {{ 'Aufgabe' if f.heute == 1 else 'Aufgaben' }}** geschafft{% endif %}." +
-            "{% if f.serie >= 2 %} 🔥 {{ f.serie }} Tage in Folge!{% endif %}" +
-            "{% else %}Hake Aufgaben ab und sammle Punkte fürs Familien-Rennen.{% endif %}\n" +
-            "Tipp: Schreib „+20“ in den Titel einer Aufgabe, dann bringt sie 20 Punkte. Tippe auf dein Fahrzeug, um es umzubauen.",
+            `## ${t.hallo} {{ user }} 🏁\n` +
+            `{% if f %}{% set f = f[0] %}${t.konto_satz}{% if f.heute %}${t.heute_satz}{% endif %}.` +
+            `{% if f.serie >= 2 %}${t.serie_satz}{% endif %}{% else %}${t.gast}{% endif %}\n` +
+            t.tipp,
         },
         { type: "custom:rennstrecke-card", entity: rennen },
       ],
@@ -56,10 +98,7 @@
     // --- Aufgaben pro Person --------------------------------------------------------
     for (const f of fahrer) {
       if (!f.liste) continue;
-      const punkte = entities(hass, "sensor").find(
-        (id) => hass.states[id].attributes.level_name !== undefined &&
-          (hass.states[id].attributes.friendly_name || "").endsWith(`Punkte ${f.name}`)
-      );
+      const punkte = id(`punkte_${f.slug}`);
       sections.push({
         type: "grid",
         cards: [
@@ -75,34 +114,32 @@
     }
 
     // --- Haushalt heute + Familienliste --------------------------------------------
-    const haushalt = finde(hass, "sensor", "Haushalt heute");
-    const hausKarten = [{ type: "heading", heading: "Haushalt heute", icon: "mdi:home-heart" }];
-    if (haushalt) {
-      hausKarten.push({
+    const hausKarten = [
+      { type: "heading", heading: t.haushalt, icon: "mdi:home-heart" },
+      {
         type: "markdown",
         text_only: true,
         content:
-          `{% set d = state_attr('${haushalt}', 'dienste') or [] %}` +
-          "{% for x in d %}{% if x.heute_dran %}**{{ x.titel }}** · {{ x.zuletzt or 'noch nicht verteilt' }} · {{ x.punkte }} Punkte\n\n{% endif %}{% endfor %}" +
-          "{% if not (d | selectattr('heute_dran') | list) %}Heute stehen keine Dienste an.{% endif %}",
-      });
-    }
+          `{% set d = state_attr('${rennen}', 'dienste') or [] %}` +
+          `{% for x in d %}{% if x.heute_dran %}**{{ x.titel }}** · {{ x.zuletzt or '${t.nicht_verteilt}' }} · {{ x.punkte }} ${t.punkte}\n\n{% endif %}{% endfor %}` +
+          `{% if not (d | selectattr('heute_dran') | list) %}${t.keine_dienste}{% endif %}`,
+      },
+    ];
     if (a.familien_liste) {
-      hausKarten.push({ type: "heading", heading: "Familie", heading_style: "subtitle", icon: "mdi:home-heart" });
+      hausKarten.push({ type: "heading", heading: t.familie, heading_style: "subtitle", icon: "mdi:home-heart" });
       hausKarten.push({ type: "todo-list", entity: a.familien_liste, hide_completed: false });
     }
     sections.push({ type: "grid", column_span: 2, cards: hausKarten });
 
     // --- Belohnungs-Shop -------------------------------------------------------------
     const shop = [
-      { type: "heading", heading: "Belohnungs-Shop", icon: "mdi:gift-outline" },
+      { type: "heading", heading: t.shop, icon: "mdi:gift-outline" },
       {
         type: "markdown",
         text_only: true,
         content:
           `{% set f = state_attr('${rennen}', 'fahrer') | selectattr('name', 'eq', user) | list %}` +
-          "{% if f %}Dein Konto: **{{ f[0].konto }} Punkte**. {% endif %}" +
-          "Tippen zum Einlösen. Die Punkte werden abgebucht und in der Familienliste erscheint eine Aufgabe für die Eltern.",
+          `{% if f %}${t.dein_konto}{% endif %}${t.shop_text}`,
       },
     ];
     for (const b of a.belohnungen || []) {
@@ -116,7 +153,7 @@
           action: "perform-action",
           perform_action: "familienplaner.belohnung_einloesen",
           data: { belohnung: b.name, kosten: b.kosten },
-          confirmation: { text: `${b.name} für ${b.kosten} Punkte einlösen?` },
+          confirmation: { text: t.einloesen(b.name, b.kosten) },
         },
       });
     }
@@ -124,23 +161,7 @@
 
     // --- Eltern-Bereich: Personen, die nicht bei der Rotation mitmachen ---------------
     const eltern = fahrer.filter((f) => !f.rotation && f.user_id).map((f) => f.user_id);
-    const e = (domain, name) => finde(hass, domain, name);
-    const regeln = [
-      e("number", "Punkte pro Aufgabe"),
-      e("number", "Rennen: Ziellinie"),
-      e("number", "Serien-Bonus pro Tag"),
-      e("number", "Sieger-Bonus"),
-      e("number", "Familienziel"),
-      e("text", "Familienziel: Belohnung"),
-      e("button", "Neues Rennen starten"),
-      e("button", "Familienziel einlösen"),
-    ].filter(Boolean);
-    const rotation = [
-      e("switch", "Haushalts-Rotation"),
-      e("time", "Haushalts-Rotation Uhrzeit"),
-      e("button", "Dienste jetzt verteilen"),
-    ].filter(Boolean);
-    const elternKarten = [{ type: "heading", heading: "Eltern-Bereich", icon: "mdi:shield-account-outline" }];
+    const elternKarten = [{ type: "heading", heading: t.eltern, icon: "mdi:shield-account-outline" }];
     for (const f of fahrer) {
       elternKarten.push({
         type: "button",
@@ -155,17 +176,18 @@
         },
       });
     }
-    if (regeln.length) elternKarten.push({ type: "entities", title: "Spielregeln", grid_options: { columns: 6 }, entities: regeln });
-    if (rotation.length) {
-      elternKarten.push({ type: "entities", title: "Haushalts-Rotation", grid_options: { columns: 6 }, entities: rotation });
-    }
+    const regeln = ["punkte_pro_aufgabe", "rennen_ziel", "serien_bonus", "sieger_bonus", "familienziel",
+      "familienziel_text", "rennen_neu", "familienziel_einloesen"].map(id).filter(Boolean);
+    const rotation = ["rotation_aktiv", "rotation_uhrzeit", "dienste_verteilen"].map(id).filter(Boolean);
+    if (regeln.length) elternKarten.push({ type: "entities", title: t.regeln, grid_options: { columns: 6 }, entities: regeln });
+    if (rotation.length) elternKarten.push({ type: "entities", title: t.rotation, grid_options: { columns: 6 }, entities: rotation });
     const elternSec = { type: "grid", column_span: 4, cards: elternKarten };
     // Ohne festgelegte Eltern (alle machen bei der Rotation mit) ist der Bereich für alle sichtbar.
     if (eltern.length) elternSec.visibility = [{ condition: "user", users: eltern }];
     sections.push(elternSec);
 
     return {
-      title: "Aufgaben",
+      title: t.titel,
       path: "aufgaben",
       icon: "mdi:trophy-variant-outline",
       type: "sections",
@@ -177,5 +199,5 @@
 
   window.familienplanerViews = window.familienplanerViews || [];
   if (!window.familienplanerViews.includes(aufgabenView)) window.familienplanerViews.push(aufgabenView);
-  console.info("%c FAMILIENPLANER %c Aufgaben ", `color:#fff;background:${BLAU};font-weight:700`, `color:${BLAU}`);
+  console.info("%c FAMILIENPLANER %c Aufgaben ", `color:#fff;background:${FARBE};font-weight:700`, `color:${FARBE}`);
 })();

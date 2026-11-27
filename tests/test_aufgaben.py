@@ -106,12 +106,12 @@ async def test_punkte_fuers_abhaken(hass: HomeAssistant, planer):
     ben = next(f for f in rennen.attributes["fahrer"] if f["slug"] == "ben")
     assert ben["punkte"] == 30 and ben["user_id"] == planer["ben"].id
     assert hass.states.get(_eid(hass, "sensor.punkte_ben")).state == "30"
-    # Die Dashboard-Ansicht findet Entitäten über diese Namen
-    namen = {s.attributes.get("friendly_name") for s in hass.states.async_all()}
-    for n in ("Familienplaner Punkte Ben", "Familienplaner Haushalt heute", "Familienplaner Punkte pro Aufgabe",
-              "Familienplaner Rennen: Ziellinie", "Familienplaner Familienziel: Belohnung",
-              "Familienplaner Haushalts-Rotation Uhrzeit", "Familienplaner Dienste jetzt verteilen"):
-        assert n in namen, n
+    # Übersetzte Namen (Testsprache Englisch) und die Entitäten-Liste für das Dashboard
+    assert hass.states.get(_eid(hass, "sensor.punkte_ben")).attributes["friendly_name"] == "Familienplaner Points Ben"
+    ids = rennen.attributes["entitaeten"]
+    for key in ("rennen", "haushalt", "punkte_ben", "punkte_pro_aufgabe", "rennen_ziel", "familienziel_text",
+                "rotation_aktiv", "rotation_uhrzeit", "rennen_neu", "dienste_verteilen", "familienziel_einloesen"):
+        assert ids[key] and hass.states.get(ids[key]), key
 
 
 async def test_familienliste_zaehlt_fuer_wer_abhakt(hass: HomeAssistant, planer):
@@ -135,7 +135,7 @@ async def test_belohnung_einloesen(hass: HomeAssistant, planer):
     items = await hass.services.async_call("todo", "get_items", {"entity_id": "todo.familie"}, blocking=True,
                                            return_response=True)
     eintrag = items["todo.familie"]["items"][0]["summary"]
-    assert eintrag == "🎁 Ben löst ein: Eis"
+    assert eintrag == "🎁 Ben redeems: Eis"
     # Abhaken der Belohnung bringt keine Punkte
     await _todo(hass, "update_item", {"entity_id": "todo.familie", "item": eintrag, "status": "completed"},
                 user=planer["anna"])
@@ -171,8 +171,8 @@ async def test_rotation_und_sieg(hass: HomeAssistant, planer, freezer: FrozenDat
     items = await hass.services.async_call("todo", "get_items", {"entity_id": "todo.ben"}, blocking=True,
                                            return_response=True)
     titel = [i["summary"] for i in items["todo.ben"]["items"]]
-    assert "🍽️ Spülmaschine ausräumen +15" in titel
-    await _todo(hass, "update_item", {"entity_id": "todo.ben", "item": "🍽️ Spülmaschine ausräumen +15", "status": "completed"})
+    assert "🍽️ Empty the dishwasher +15" in titel
+    await _todo(hass, "update_item", {"entity_id": "todo.ben", "item": "🍽️ Empty the dishwasher +15", "status": "completed"})
     assert m.stand("ben")["rennen"] == 15
 
     # Ziellinie über die Einstellungs-Entität senken -> Sieg mit Bonus
@@ -189,7 +189,7 @@ async def test_rotation_und_sieg(hass: HomeAssistant, planer, freezer: FrozenDat
     await hass.async_block_till_done()
     items = await hass.services.async_call("todo", "get_items", {"entity_id": "todo.ben"}, blocking=True,
                                            return_response=True)
-    assert any(i["summary"].startswith("🗑️ Müll") for i in items["todo.ben"]["items"])
+    assert any(i["summary"].startswith("🗑️") for i in items["todo.ben"]["items"])
     # Serie abgerissen (letzte Aufgabe Freitag) -> nach Mitternacht 0
     assert m.stand("ben")["serie"] == 0 and m.stand("ben")["heute"] == 0
 
@@ -201,3 +201,24 @@ async def test_punkte_bleiben_nach_neustart(hass: HomeAssistant, planer):
     await hass.async_block_till_done()
     m2 = hass.config_entries.async_get_entry(planer["entry"].entry_id).runtime_data.aufgaben
     assert m2.stand("ben")["konto"] == 42
+
+
+async def test_deutsch(hass: HomeAssistant, enable_custom_integrations, tmp_path):
+    """Mit deutscher Systemsprache sind Dienste, Belohnungen und Texte deutsch."""
+    hass.config.language = "de"
+    hass.config.config_dir = str(tmp_path)
+    (tmp_path / ".storage").mkdir(exist_ok=True)
+    e = MockConfigEntry(domain="local_calendar", data={"calendar_name": "Familie", "storage_key": "familie"})
+    e.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(e.entry_id)
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"titel": "Familie Test", "familien_kalender": "calendar.familie"}
+    )
+    await hass.async_block_till_done()
+    m = result["result"].runtime_data.aufgaben
+    assert m.daten["dienste"][0]["titel"] == "🍽️ Spülmaschine ausräumen"
+    assert m.daten["belohnungen"][0]["name"] == "Eis essen"
+    assert m.einstellungen["familienziel_text"] == "Pizza- und Filmabend 🍕"
+    assert aufgaben._t(hass, "belohnung_aufgabe", name="Carla", belohnung="Kino") == "🎁 Carla löst ein: Kino"
+    assert aufgaben.level(260, "en")[1] == "Kart talent"
