@@ -132,6 +132,10 @@ class FamilienplanerCoordinator(DataUpdateCoordinator[PlanerDaten]):
             bei(o[CONF_WEEKLY_TIME], self._wochenrueckblick_sonntag)
 
     # ------------------------------------------------------------------ Abfragen
+    async def async_events(self, entities: list[str], start: datetime, dauer: timedelta) -> dict[str, Any]:
+        """Öffentlich: Termine mehrerer Kalender (Antwort von calendar.get_events)."""
+        return await self._events(entities, start, dauer)
+
     async def _events(self, entities: list[str], start: datetime, dauer: timedelta) -> dict[str, Any]:
         entities = [e for e in dict.fromkeys(entities) if e and self.hass.states.get(e)]
         if not entities:

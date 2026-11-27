@@ -10,7 +10,7 @@
  *     type: custom:familienplaner
  *     # optional:
  *     # theme: Familienkalender
- *     # hacs_karten: true   (false = nur eingebaute Karten)
+ *     # hacs_karten: true   (week-planner-card / calendar-card-pro statt der eigenen Kalenderkarte)
  *     # tablet:             (Wand-Tablet-Modus, aktiv nach einmaligem Öffnen mit ?wand=1)
  *     #   leerlauf: 5                      Minuten bis zum Bildschirmschoner
  *     #   fotos: media-source://media_source/local/fotos   (oder Liste von Bild-URLs)
@@ -164,6 +164,24 @@ function wochenKarte(u, hacs) {
   return { type: "calendar", initial_view: "listWeek", entities: kal.map((k) => k.entity) };
 }
 
+function kalenderListe(u, nurPerson) {
+  const liste = [];
+  const fam = u.familie.kalender ? { entity: u.familie.kalender, name: "Familie", farbe: u.familie.farbe, slug: "familie" } : null;
+  if (nurPerson) {
+    if (nurPerson.kalender) liste.push({ entity: nurPerson.kalender, name: nurPerson.name, farbe: nurPerson.farbe, slug: nurPerson.slug });
+    if (fam) liste.push(fam);
+    return liste;
+  }
+  if (fam) liste.push(fam);
+  for (const p of u.personen || []) if (p.kalender) liste.push({ entity: p.kalender, name: p.name, farbe: p.farbe, slug: p.slug });
+  for (const k of alleKalender(u)) if (!liste.some((x) => x.entity === k.entity)) liste.push({ entity: k.entity, name: k.name, farbe: k.color });
+  return liste;
+}
+
+function eigeneKarte(u, ansicht, extra = {}) {
+  return { type: "custom:familienplaner-kalender", ansicht, kalender: kalenderListe(u, extra.person), ...(extra.titel ? { titel: extra.titel } : {}), ...(extra.person ? { folge_person: false } : {}) };
+}
+
 function agendaKarte(hacs, entities, titel, tage = 7) {
   if (hacs.agenda) {
     return {
@@ -191,12 +209,14 @@ class FamilienplanerStrategy extends HTMLElement {
       };
     }
     const u = hass.states[id].attributes;
-    const nutzeHacs = config.hacs_karten !== false;
+    const nutzeHacs = config.hacs_karten === true;
     const hacs = {
       week: nutzeHacs && (await karteVerfuegbar("week-planner-card")),
       agenda: nutzeHacs && (await karteVerfuegbar("calendar-card-pro")),
     };
     const schoen = await karteVerfuegbar("familienplaner-kopf");
+    // Eigene Kalenderkarte ist Standard; HACS-Karten nur noch, wenn ausdrücklich gewünscht
+    const eigen = config.hacs_karten !== true && (await karteVerfuegbar("familienplaner-kalender"));
     const themen = (hass.themes && hass.themes.themes) || {};
     const theme = config.theme || (themen.Familienkalender ? "Familienkalender" : undefined);
     const personen = u.personen || [];
@@ -234,7 +254,7 @@ class FamilienplanerStrategy extends HTMLElement {
               personen: personen.map((p) => ({ slug: p.slug, name: p.name, farbe: p.farbe, person: p.person, sensor: p.sensor, kalender: p.kalender, liste: p.liste })),
               familie: { kalender: u.familie.kalender, liste: u.familie.liste },
             }] : []),
-            wochenKarte(u, hacs),
+            eigen ? eigeneKarte(u, "woche") : wochenKarte(u, hacs),
             { type: "custom:familienplaner-wand", personen: personen.filter((p) => p.sensor).map((p) => ({ sensor: p.sensor, name: p.name, farbe: p.farbe })), ...(config.tablet || {}) },
             { type: "grid", columns: 3, square: false, cards: [...extras, { type: "vertical-stack", cards: [schoen && u.formular && u.formular.satz ? { type: "custom:familienplaner-schnell" } : formularKarte(u), ...kacheln] }] },
           ],
@@ -256,7 +276,7 @@ class FamilienplanerStrategy extends HTMLElement {
       const karten = [];
       if (p.sensor) karten.push(schoen ? personenKarte([p]) : personKachel(p));
       karten.push({ type: "heading", heading: "Meine Termine", icon: "mdi:calendar-account" });
-      karten.push(agendaKarte(hacs, [...(p.kalender ? [{ entity: p.kalender, color: p.farbe }] : []), ...famKal], undefined, 7));
+      karten.push(eigen ? eigeneKarte(u, "liste", { person: p }) : agendaKarte(hacs, [...(p.kalender ? [{ entity: p.kalender, color: p.farbe }] : []), ...famKal], undefined, 7));
       if (p.liste) {
         karten.push({ type: "heading", heading: "Meine Aufgaben", icon: "mdi:checkbox-marked-circle-outline" });
         karten.push({ type: "todo-list", entity: p.liste });
@@ -285,7 +305,7 @@ class FamilienplanerStrategy extends HTMLElement {
         type: "grid",
         cards: [
           schoen && p.sensor ? personenKarte([p]) : { type: "heading", heading: p.name, icon: "mdi:account" },
-          agendaKarte(hacs, [...(p.kalender ? [{ entity: p.kalender, color: p.farbe }] : []), ...famKal], undefined, 7),
+          eigen ? eigeneKarte(u, "liste", { person: p }) : agendaKarte(hacs, [...(p.kalender ? [{ entity: p.kalender, color: p.farbe }] : []), ...famKal], undefined, 7),
         ],
       })),
     };
@@ -315,7 +335,7 @@ class FamilienplanerStrategy extends HTMLElement {
       icon: "mdi:calendar-month",
       type: "panel",
       theme,
-      cards: [{ type: "calendar", initial_view: "dayGridMonth", entities: alleKalender(u).map((k) => k.entity) }],
+      cards: [eigen ? eigeneKarte(u, "monat") : { type: "calendar", initial_view: "dayGridMonth", entities: alleKalender(u).map((k) => k.entity) }],
     });
 
     // Erweiterungen (z. B. Aufgaben/Punkte) können eigene Views anhängen

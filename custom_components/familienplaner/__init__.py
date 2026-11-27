@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, datetime as _DateTime, timedelta
+from datetime import date, datetime, datetime as _DateTime, time as _time, timedelta
 import hashlib
 import logging
 from pathlib import Path
@@ -51,6 +51,7 @@ SCHEMA_TERMIN = vol.Schema(
         vol.Optional("ort", default=""): cv.string,
         vol.Optional("fahrer", default=""): cv.string,
         vol.Optional("benachrichtigen", default=True): cv.boolean,
+        vol.Optional("rrule", default=""): cv.string,
     }
 )
 SCHEMA_GERICHT = vol.Schema(
@@ -99,11 +100,17 @@ async def async_termin_anlegen(coord: FamilienplanerCoordinator, daten: dict[str
     else:
         event["start_date_time"] = start.isoformat()
         event["end_date_time"] = (start + timedelta(minutes=int(daten.get("dauer", 60)))).isoformat()
-    await hass.services.async_call("calendar", "create_event", event, blocking=True)
+    rrule = str(daten.get("rrule") or "").strip()
+    if rrule:
+        await _wiederkehrend_anlegen(hass, kalender, event, rrule)
+    else:
+        await hass.services.async_call("calendar", "create_event", event, blocking=True)
 
     lokal = dt_util.as_local(start)
     wann = f"{['Mo','Di','Mi','Do','Fr','Sa','So'][lokal.weekday()]}, {lokal.day}.{lokal.month}."
     wann += " (ganztägig)" if daten.get("ganztag") else f" um {lokal:%H:%M} Uhr"
+    if rrule:
+        wann += f" · {logic.rrule_text(rrule)}"
     if ort:
         wann += f" · {ort}"
     if daten.get("benachrichtigen", True):
@@ -114,6 +121,30 @@ async def async_termin_anlegen(coord: FamilienplanerCoordinator, daten: dict[str
         await coord.async_benachrichtigen(fahrer_slug, f"🚗 Du fährst: {titel}", wann + wer)
     await coord.async_request_refresh()
     return wann
+
+
+async def _wiederkehrend_anlegen(hass: HomeAssistant, kalender: str, event: dict[str, Any], rrule: str) -> None:
+    """Wiederkehrenden Termin direkt über die Kalender-Entität anlegen (der Dienst kennt kein rrule)."""
+    from homeassistant.components.calendar.const import DATA_COMPONENT
+
+    entity = hass.data[DATA_COMPONENT].get_entity(kalender) if DATA_COMPONENT in hass.data else None
+    if entity is None:
+        raise ServiceValidationError(f"Kalender {kalender} nicht gefunden.")
+    if "start_date" in event:
+        start: Any = date.fromisoformat(event["start_date"])
+        ende: Any = date.fromisoformat(event["end_date"])
+    else:
+        start = dt_util.as_local(_DateTime.fromisoformat(event["start_date_time"]))
+        ende = dt_util.as_local(_DateTime.fromisoformat(event["end_date_time"]))
+    daten = {"dtstart": start, "dtend": ende, "summary": event["summary"], "rrule": rrule}
+    for feld in ("location", "description"):
+        if event.get(feld):
+            daten[feld] = event[feld]
+    try:
+        await entity.async_create_event(**daten)
+    except NotImplementedError as err:
+        raise ServiceValidationError(f"Der Kalender {kalender} kann keine Termine anlegen.") from err
+    entity.async_write_ha_state()
 
 
 async def async_termin_aus_satz(coord: FamilienplanerCoordinator, text: str, werfen: bool = True) -> dict[str, Any]:
@@ -134,7 +165,8 @@ async def async_termin_aus_satz(coord: FamilienplanerCoordinator, text: str, wer
         erkannt["person"] = FAMILY
     wann = await async_termin_anlegen(coord, {
         "person": erkannt["person"], "titel": erkannt["titel"], "start": start,
-        "ganztag": erkannt["ganztag"], "fahrer": erkannt["fahrer"], "dauer": 60,
+        "ganztag": erkannt["ganztag"], "fahrer": erkannt["fahrer"], "dauer": erkannt.get("dauer", 60),
+        "ort": erkannt.get("ort", ""), "rrule": erkannt.get("rrule", ""),
     })
     wer = "die Familie" if erkannt["person"] == FAMILY else coord.namen.get(erkannt["person"], erkannt["person"])
     antwort = f"Eingetragen: {erkannt['titel']} für {wer}, {wann}."
@@ -142,6 +174,27 @@ async def async_termin_aus_satz(coord: FamilienplanerCoordinator, text: str, wer
         antwort += f" {coord.namen.get(erkannt['fahrer'], erkannt['fahrer'])} fährt."
     return {"verstanden": True, "person": erkannt["person"], "titel": erkannt["titel"], "start": start.isoformat(),
             "ganztag": erkannt["ganztag"], "fahrer": erkannt["fahrer"], "antwort": antwort}
+
+
+async def async_freie_zeit(coord: FamilienplanerCoordinator, daten: dict[str, Any]) -> dict[str, Any]:
+    """Zeiten, in denen alle gewählten Personen (und die Familie) frei sind."""
+    wahl = daten.get("personen") or []
+    if isinstance(wahl, str):
+        wahl = [w.strip().lower() for w in wahl.split(",") if w.strip()]
+    namen = {p.name.lower(): p.slug for p in coord.personen}
+    slugs = {namen.get(w, w) for w in wahl} or {p.slug for p in coord.personen}
+    kalender = [coord.kalender_von(FAMILY)] + [p.calendar_entity for p in coord.personen if p.slug in slugs]
+    jetzt = dt_util.now()
+    tage = int(daten.get("tage", 7))
+    antwort = await coord.async_events([k for k in kalender if k], jetzt, timedelta(days=tage))
+    tz = dt_util.get_default_time_zone()
+    termine = [t for k in kalender if k for t in logic.parse_events(antwort, k, "", tz)]
+    slots = logic.freie_zeiten(termine, jetzt, tage, daten.get("von") or _time(8), daten.get("bis") or _time(20),
+                               int(daten.get("dauer", 60)), tz)
+    wer = ", ".join(coord.namen.get(s, s) for s in sorted(slugs))
+    text = (f"Freie Zeit für {wer}: " + "; ".join(x["text"] for x in slots[:5]) + ".") if slots else \
+        f"In den nächsten {tage} Tagen gibt es keine gemeinsame freie Zeit für {wer}."
+    return {"slots": slots, "antwort": text}
 
 
 async def async_gericht_planen(coord: FamilienplanerCoordinator, daten: dict[str, Any]) -> None:
@@ -195,12 +248,26 @@ def _dienste_registrieren(hass: HomeAssistant) -> None:
     async def satz(call: ServiceCall) -> ServiceResponse:
         return await async_termin_aus_satz(_coordinator(hass), call.data["text"], werfen=False)
 
+    async def frei(call: ServiceCall) -> ServiceResponse:
+        return await async_freie_zeit(_coordinator(hass), dict(call.data))
+
     async def woche(call: ServiceCall) -> ServiceResponse:
         return {"texte": await _coordinator(hass).async_wochenrueckblick()}
 
     hass.services.async_register(
         DOMAIN, "termin_aus_satz", satz, schema=vol.Schema({vol.Required("text"): cv.string}),
         supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN, "freie_zeit", frei,
+        schema=vol.Schema({
+            vol.Optional("tage", default=7): vol.All(vol.Coerce(int), vol.Range(min=1, max=31)),
+            vol.Optional("dauer", default=60): vol.All(vol.Coerce(int), vol.Range(min=15, max=600)),
+            vol.Optional("personen", default=""): vol.Any(cv.string, [cv.string]),
+            vol.Optional("von", default="08:00:00"): cv.time,
+            vol.Optional("bis", default="20:00:00"): cv.time,
+        }),
+        supports_response=SupportsResponse.ONLY,
     )
     hass.services.async_register(
         DOMAIN, "wochenrueckblick", woche, schema=vol.Schema({}), supports_response=SupportsResponse.OPTIONAL

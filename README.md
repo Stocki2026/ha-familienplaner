@@ -59,10 +59,9 @@ als eigene Home-Assistant-Integration (installierbar über HACS).
      type: custom:familienplaner
    ```
    ). Neue Personen erscheinen danach automatisch. Optional `theme: Familienkalender` und
-   `hacs_karten: false` (nur eingebaute Karten).
+   `hacs_karten: true` (Week Planner Card / Calendar Card Pro statt der eigenen Kalenderansicht).
 
-Empfohlen (HACS, Frontend): Week Planner Card, Calendar Card Pro, card-mod. Ohne sie nutzt das
-Dashboard automatisch die eingebauten Kalenderkarten.
+Zusätzliche HACS-Karten sind nicht nötig: Der Familienplaner bringt eine eigene Kalenderansicht mit.
 
 ## Was es kann
 
@@ -134,6 +133,37 @@ Die Karten funktionieren auch einzeln:
 - `type: custom:aufgaben-bilder-card` mit `entity: todo.ben` (optional `farbe`, `ton: false`, `erledigte: false`,
   `titel`)
 
+## Die Kalenderansicht
+
+Die Karte `custom:familienplaner-kalender` ist im Dashboard überall eingebaut (Woche, Monat, Mein Bereich, Familie):
+
+- **Tag, Woche, Monat und Liste** mit einem Tipp umschalten; wischen oder ‹ › blättert, „Heute“ springt zurück.
+  Auf dem Handy zeigt die Woche 3 Tage nebeneinander.
+- **Farbige Personen-Chips** blenden Kalender aus und ein. Wird oben eine Person angetippt, folgt die Ansicht.
+- **Termin antippen:** Details mit Ort (Karte), Notiz und Wiederholung, dann **Ändern** oder **Löschen**
+  (bei Serien „nur diesen“ oder „diesen und alle folgenden“).
+- **Leere Stunde antippen:** Neuer Termin, schon mit Tag und Uhrzeit vorausgefüllt – den Rest als Satz schreiben.
+- **„Wer hat Zeit?“** markiert grün die Lücken, in denen alle sichtbaren Personen frei sind.
+- **Symbole** erscheinen automatisch passend zum Titel (⚽ Fußball, 🦷 Zahnarzt, 🎂 Geburtstag, 🎹 Klavier …).
+- Jetzt-Linie, Kalenderwoche, ganztägige Termine oben, überlappende Termine nebeneinander, vergangene blasser.
+
+```yaml
+type: custom:familienplaner-kalender
+ansicht: woche          # tag | woche | monat | liste
+von: 6                  # erste Stunde im Raster
+bis: 22
+tage_liste: 14
+kalender:
+  - entity: calendar.familie
+    name: Familie
+    farbe: "#8A8F98"
+    slug: familie
+  - entity: calendar.anna
+    name: Anna
+    farbe: "#5B8DB8"
+    slug: anna
+```
+
 ## Terminkonflikte
 
 Der Familienplaner prüft die nächsten Tage auf Doppelbuchungen einer Person und auf Fahrer, die zur selben Zeit
@@ -148,9 +178,33 @@ Ins Feld **„Termin in einem Satz“** (im Formular „Neuer Termin“) einfach
 „Elternabend nächsten Freitag um 19 Uhr“, „Carla hat halb 5 Klavier“. Erkannt werden Person (sonst Familie),
 heute/morgen/übermorgen, Wochentage, Datum, Uhrzeit („um 4“ = 16 Uhr, „halb 5“ = 16:30) und der Fahrer.
 
+Außerdem:
+
+- **Serien:** „Ben hat jeden Dienstag um 4 Fußball“, „Anna werktags 7:30 Arbeit“, „Müll alle 2 Wochen Freitag“,
+  „täglich“, „wöchentlich“, „monatlich“, „jährlich“, „dienstags“
+- **Ende oder Dauer:** „von 16 bis 17:30“, „16-18 Uhr“, „für 2 Stunden“, „90 Minuten“
+- **Ort:** „… im Sportpark“, „… bei Oma“ am Satzende oder ausdrücklich „@Turnhalle“ / „Ort: Turnhalle“
+
 **Per Sprache (Assist, Handy-App oder Voice-Gerät):** Vorlage importieren –
 [Termin per Sprache](https://my.home-assistant.io/create-link/?redirect=blueprint_import&blueprint_url=https%3A%2F%2Fgithub.com%2FStocki2026%2Fha-familienplaner%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Ffamilienplaner%2Ftermin_per_sprache.yaml) – und sagen: „Termin Ben hat morgen um 16 Uhr Fußball“.
 Alexa kann ohne eigenen Skill keinen freien Text an Home Assistant übergeben; dafür Assist nutzen.
+
+## Wer hat Zeit?
+
+Der Dienst `familienplaner.freie_zeit` sucht gemeinsame Lücken, z. B. für einen Familienausflug:
+
+```yaml
+action: familienplaner.freie_zeit
+data:
+  tage: 7          # wie weit voraus
+  dauer: 120       # mindestens so viele Minuten
+  personen: [anna, ben]   # leer = alle
+  von: "08:00"
+  bis: "20:00"
+```
+
+Antwort: `slots` (start, ende, minuten, text) und ein fertiger Satz in `antwort`, z. B. für Alexa oder Push.
+Ganztägige Termine (Geburtstage, Feiertage) blockieren nicht.
 
 ## Wochenrückblick
 
@@ -203,12 +257,13 @@ die Helligkeit lässt sich steuern.
 
 ## Dienste
 
-- `familienplaner.termin_anlegen` (person, titel, start, dauer, ganztag, ort, fahrer, benachrichtigen)
+- `familienplaner.termin_anlegen` (person, titel, start, dauer, ganztag, ort, fahrer, benachrichtigen, rrule)
 - `familienplaner.gericht_planen` (tag, gericht, zutaten)
 - `familienplaner.benachrichtigen` (person oder `familie`, titel, nachricht)
 - `familienplaner.morgen_ansage` (gibt den Text zurück)
 - `familienplaner.termin_aus_satz` (text; gibt `verstanden` und `antwort` zurück)
 - `familienplaner.wochenrueckblick` (verschickt den Wochenrückblick sofort)
+- `familienplaner.freie_zeit` (tage, dauer, personen, von, bis; gibt `slots` und `antwort` zurück)
 
 ## Für Erweiterungen
 
@@ -217,6 +272,7 @@ die Helligkeit lässt sich steuern.
   notify_service, rotation), Push: `await coordinator.async_benachrichtigen(slug_oder_familie, titel, text)`.
 - Frontend: Jede `.js`-Datei in `frontend/` wird automatisch geladen. Eigene Dashboard-Views:
   `window.familienplanerViews.push(async (uebersicht, hass, {theme, hacs}) => view)`.
+  Passendes Symbol zu einem Titel: `window.familienplaner.symbol("Fußball")` → „⚽“.
 
 ## Entwicklung
 

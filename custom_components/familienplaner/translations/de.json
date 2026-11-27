@@ -135,6 +135,10 @@
         "benachrichtigen": {
           "name": "Benachrichtigen",
           "description": "Push an die Person schicken."
+        },
+        "rrule": {
+          "name": "Wiederholung",
+          "description": "Wiederholungsregel, z. B. FREQ=WEEKLY oder FREQ=WEEKLY;INTERVAL=2."
         }
       }
     },
@@ -317,6 +321,32 @@
         "aufgaben": {
           "name": "Aufgaben",
           "description": "Liste mit titel (Emoji vorne = Bild), punkte, bereich (kueche, putzen, waesche, ordnung, draussen, tiere) und optional key."
+        }
+      }
+    },
+    "freie_zeit": {
+      "name": "Wann haben alle Zeit?",
+      "description": "Findet Zeiten, in denen keine der gewählten Personen einen Termin hat.",
+      "fields": {
+        "tage": {
+          "name": "Tage",
+          "description": "Wie viele Tage im Voraus gesucht wird."
+        },
+        "dauer": {
+          "name": "Mindestlänge",
+          "description": "Mindestlänge einer freien Zeit."
+        },
+        "personen": {
+          "name": "Personen",
+          "description": "Mit Komma getrennt (z. B. anna, ben). Leer = alle."
+        },
+        "von": {
+          "name": "Ab",
+          "description": "Früheste Uhrzeit am Tag."
+        },
+        "bis": {
+          "name": "Bis",
+          "description": "Späteste Uhrzeit am Tag."
         }
       }
     }
