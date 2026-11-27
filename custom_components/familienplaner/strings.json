@@ -270,6 +270,34 @@
     "neue_insel": {
       "name": "New island",
       "description": "Starts a new treasure island: the family walks from the beginning again."
+    },
+    "aufgabe_nehmen": {
+      "name": "Take a task",
+      "description": "Puts a ready-made chore from the task catalogue on a person's list (due today). Without a person it goes to the signed-in user.",
+      "fields": {
+        "aufgabe": {
+          "name": "Task",
+          "description": "Key or title from the catalogue."
+        },
+        "person": {
+          "name": "Person",
+          "description": "Slug of the person (only admins may assign to others)."
+        },
+        "punkte": {
+          "name": "Points",
+          "description": "Different points (admins only)."
+        }
+      }
+    },
+    "katalog_festlegen": {
+      "name": "Set task catalogue",
+      "description": "Replaces the list of ready-made chores.",
+      "fields": {
+        "aufgaben": {
+          "name": "Tasks",
+          "description": "List with titel (emoji first = picture), punkte, bereich (kueche, putzen, waesche, ordnung, draussen, tiere) and optional key."
+        }
+      }
     }
   },
   "entity": {

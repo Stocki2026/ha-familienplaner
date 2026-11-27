@@ -51,7 +51,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dispatcher_send
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_change
 from homeassistant.helpers.storage import Store
-from homeassistant.util import dt as dt_util
+from homeassistant.util import dt as dt_util, slugify
 
 from .const import CONF_FAMILY_TODO, DOMAIN, FAMILY
 from .entity import FamilienplanerEntity
@@ -155,6 +155,106 @@ STANDARD_STATIONEN: dict[str, list[dict[str, Any]]] = {
     ],
 }
 
+# Vorgefertigte Haushaltsaufgaben, die man sich selbst nehmen kann (Emoji vorne = großes Bild).
+STANDARD_KATALOG: dict[str, list[dict[str, Any]]] = {
+    "de": [
+        {"key": "spuelmaschine_aus", "bereich": "kueche", "titel": "🍽️ Spülmaschine ausräumen", "punkte": 15},
+        {"key": "spuelmaschine_ein", "bereich": "kueche", "titel": "🍽️ Spülmaschine einräumen", "punkte": 10},
+        {"key": "tisch_decken", "bereich": "kueche", "titel": "🍴 Tisch decken", "punkte": 10},
+        {"key": "tisch_abraeumen", "bereich": "kueche", "titel": "🧽 Tisch abräumen und abwischen", "punkte": 10},
+        {"key": "abwaschen", "bereich": "kueche", "titel": "🧼 Abwaschen", "punkte": 20},
+        {"key": "abtrocknen", "bereich": "kueche", "titel": "🫖 Abtrocknen", "punkte": 10},
+        {"key": "kochen", "bereich": "kueche", "titel": "🧑‍🍳 Beim Kochen helfen", "punkte": 20},
+        {"key": "pausenbrot", "bereich": "kueche", "titel": "🥪 Pausenbrot vorbereiten", "punkte": 10},
+        {"key": "kuehlschrank", "bereich": "kueche", "titel": "🧊 Kühlschrank aufräumen", "punkte": 20},
+        {"key": "einkauf", "bereich": "kueche", "titel": "🛒 Einkäufe auspacken", "punkte": 10},
+        {"key": "staubsaugen", "bereich": "putzen", "titel": "🧹 Staubsaugen", "punkte": 25},
+        {"key": "fegen", "bereich": "putzen", "titel": "🧹 Fegen", "punkte": 15},
+        {"key": "wischen", "bereich": "putzen", "titel": "🫧 Boden wischen", "punkte": 25},
+        {"key": "staub", "bereich": "putzen", "titel": "🪶 Staub wischen", "punkte": 15},
+        {"key": "toilette", "bereich": "putzen", "titel": "🚽 Toilette putzen", "punkte": 25},
+        {"key": "bad", "bereich": "putzen", "titel": "🛁 Bad putzen", "punkte": 30},
+        {"key": "waschbecken", "bereich": "putzen", "titel": "🚰 Waschbecken putzen", "punkte": 10},
+        {"key": "spiegel", "bereich": "putzen", "titel": "🪞 Spiegel putzen", "punkte": 10},
+        {"key": "fenster", "bereich": "putzen", "titel": "🪟 Fenster putzen", "punkte": 30},
+        {"key": "aufhaengen", "bereich": "waesche", "titel": "🧺 Wäsche aufhängen", "punkte": 15},
+        {"key": "zusammenlegen", "bereich": "waesche", "titel": "👕 Wäsche zusammenlegen", "punkte": 15},
+        {"key": "wegraeumen", "bereich": "waesche", "titel": "🗄️ Wäsche wegräumen", "punkte": 10},
+        {"key": "socken", "bereich": "waesche", "titel": "🧦 Socken sortieren", "punkte": 10},
+        {"key": "schmutzwaesche", "bereich": "waesche", "titel": "🧺 Schmutzwäsche in den Korb", "punkte": 5},
+        {"key": "bett_beziehen", "bereich": "waesche", "titel": "🛏️ Bett frisch beziehen", "punkte": 20},
+        {"key": "bett_machen", "bereich": "ordnung", "titel": "🛏️ Bett machen", "punkte": 5},
+        {"key": "zimmer", "bereich": "ordnung", "titel": "🧸 Zimmer aufräumen", "punkte": 20},
+        {"key": "spielzeug", "bereich": "ordnung", "titel": "🧩 Spielzeug wegräumen", "punkte": 10},
+        {"key": "schuhe", "bereich": "ordnung", "titel": "👟 Schuhe ordentlich hinstellen", "punkte": 5},
+        {"key": "jacke", "bereich": "ordnung", "titel": "🧥 Jacke aufhängen", "punkte": 5},
+        {"key": "ranzen", "bereich": "ordnung", "titel": "🎒 Schulranzen packen", "punkte": 10},
+        {"key": "wohnzimmer", "bereich": "ordnung", "titel": "🛋️ Wohnzimmer aufräumen", "punkte": 20},
+        {"key": "muell", "bereich": "draussen", "titel": "🗑️ Müll rausbringen", "punkte": 15},
+        {"key": "recycling", "bereich": "draussen", "titel": "♻️ Gelben Sack / Papier rausbringen", "punkte": 15},
+        {"key": "altglas", "bereich": "draussen", "titel": "🍾 Altglas wegbringen", "punkte": 15},
+        {"key": "post", "bereich": "draussen", "titel": "📬 Briefkasten leeren", "punkte": 5},
+        {"key": "blumen", "bereich": "draussen", "titel": "🪴 Blumen gießen", "punkte": 10},
+        {"key": "unkraut", "bereich": "draussen", "titel": "🌱 Unkraut zupfen", "punkte": 25},
+        {"key": "laub", "bereich": "draussen", "titel": "🍂 Laub harken", "punkte": 30},
+        {"key": "rasen", "bereich": "draussen", "titel": "🌿 Rasen mähen", "punkte": 40},
+        {"key": "auto", "bereich": "draussen", "titel": "🚗 Auto aussaugen", "punkte": 30},
+        {"key": "schnee", "bereich": "draussen", "titel": "☃️ Schnee schippen", "punkte": 30},
+        {"key": "gassi", "bereich": "tiere", "titel": "🐶 Mit dem Hund rausgehen", "punkte": 20},
+        {"key": "fuettern", "bereich": "tiere", "titel": "🐾 Haustier füttern", "punkte": 10},
+        {"key": "wasser", "bereich": "tiere", "titel": "💧 Frisches Wasser für das Haustier", "punkte": 5},
+        {"key": "kaefig", "bereich": "tiere", "titel": "🐹 Käfig / Katzenklo sauber machen", "punkte": 25},
+    ],
+    "en": [
+        {"key": "spuelmaschine_aus", "bereich": "kueche", "titel": "🍽️ Empty the dishwasher", "punkte": 15},
+        {"key": "spuelmaschine_ein", "bereich": "kueche", "titel": "🍽️ Load the dishwasher", "punkte": 10},
+        {"key": "tisch_decken", "bereich": "kueche", "titel": "🍴 Set the table", "punkte": 10},
+        {"key": "tisch_abraeumen", "bereich": "kueche", "titel": "🧽 Clear and wipe the table", "punkte": 10},
+        {"key": "abwaschen", "bereich": "kueche", "titel": "🧼 Wash the dishes", "punkte": 20},
+        {"key": "abtrocknen", "bereich": "kueche", "titel": "🫖 Dry the dishes", "punkte": 10},
+        {"key": "kochen", "bereich": "kueche", "titel": "🧑‍🍳 Help with cooking", "punkte": 20},
+        {"key": "pausenbrot", "bereich": "kueche", "titel": "🥪 Make a packed lunch", "punkte": 10},
+        {"key": "kuehlschrank", "bereich": "kueche", "titel": "🧊 Tidy the fridge", "punkte": 20},
+        {"key": "einkauf", "bereich": "kueche", "titel": "🛒 Unpack the shopping", "punkte": 10},
+        {"key": "staubsaugen", "bereich": "putzen", "titel": "🧹 Vacuum", "punkte": 25},
+        {"key": "fegen", "bereich": "putzen", "titel": "🧹 Sweep the floor", "punkte": 15},
+        {"key": "wischen", "bereich": "putzen", "titel": "🫧 Mop the floor", "punkte": 25},
+        {"key": "staub", "bereich": "putzen", "titel": "🪶 Dust", "punkte": 15},
+        {"key": "toilette", "bereich": "putzen", "titel": "🚽 Clean the toilet", "punkte": 25},
+        {"key": "bad", "bereich": "putzen", "titel": "🛁 Clean the bathroom", "punkte": 30},
+        {"key": "waschbecken", "bereich": "putzen", "titel": "🚰 Clean the sink", "punkte": 10},
+        {"key": "spiegel", "bereich": "putzen", "titel": "🪞 Clean the mirror", "punkte": 10},
+        {"key": "fenster", "bereich": "putzen", "titel": "🪟 Clean the windows", "punkte": 30},
+        {"key": "aufhaengen", "bereich": "waesche", "titel": "🧺 Hang up the laundry", "punkte": 15},
+        {"key": "zusammenlegen", "bereich": "waesche", "titel": "👕 Fold the laundry", "punkte": 15},
+        {"key": "wegraeumen", "bereich": "waesche", "titel": "🗄️ Put the laundry away", "punkte": 10},
+        {"key": "socken", "bereich": "waesche", "titel": "🧦 Sort the socks", "punkte": 10},
+        {"key": "schmutzwaesche", "bereich": "waesche", "titel": "🧺 Dirty clothes in the basket", "punkte": 5},
+        {"key": "bett_beziehen", "bereich": "waesche", "titel": "🛏️ Change the bed sheets", "punkte": 20},
+        {"key": "bett_machen", "bereich": "ordnung", "titel": "🛏️ Make the bed", "punkte": 5},
+        {"key": "zimmer", "bereich": "ordnung", "titel": "🧸 Tidy your room", "punkte": 20},
+        {"key": "spielzeug", "bereich": "ordnung", "titel": "🧩 Put the toys away", "punkte": 10},
+        {"key": "schuhe", "bereich": "ordnung", "titel": "👟 Line up the shoes", "punkte": 5},
+        {"key": "jacke", "bereich": "ordnung", "titel": "🧥 Hang up your jacket", "punkte": 5},
+        {"key": "ranzen", "bereich": "ordnung", "titel": "🎒 Pack your school bag", "punkte": 10},
+        {"key": "wohnzimmer", "bereich": "ordnung", "titel": "🛋️ Tidy the living room", "punkte": 20},
+        {"key": "muell", "bereich": "draussen", "titel": "🗑️ Take out the trash", "punkte": 15},
+        {"key": "recycling", "bereich": "draussen", "titel": "♻️ Take out the recycling", "punkte": 15},
+        {"key": "altglas", "bereich": "draussen", "titel": "🍾 Take the bottles to the bottle bank", "punkte": 15},
+        {"key": "post", "bereich": "draussen", "titel": "📬 Get the mail", "punkte": 5},
+        {"key": "blumen", "bereich": "draussen", "titel": "🪴 Water the plants", "punkte": 10},
+        {"key": "unkraut", "bereich": "draussen", "titel": "🌱 Pull weeds", "punkte": 25},
+        {"key": "laub", "bereich": "draussen", "titel": "🍂 Rake the leaves", "punkte": 30},
+        {"key": "rasen", "bereich": "draussen", "titel": "🌿 Mow the lawn", "punkte": 40},
+        {"key": "auto", "bereich": "draussen", "titel": "🚗 Vacuum the car", "punkte": 30},
+        {"key": "schnee", "bereich": "draussen", "titel": "☃️ Shovel snow", "punkte": 30},
+        {"key": "gassi", "bereich": "tiere", "titel": "🐶 Walk the dog", "punkte": 20},
+        {"key": "fuettern", "bereich": "tiere", "titel": "🐾 Feed the pet", "punkte": 10},
+        {"key": "wasser", "bereich": "tiere", "titel": "💧 Fresh water for the pet", "punkte": 5},
+        {"key": "kaefig", "bereich": "tiere", "titel": "🐹 Clean the cage / litter box", "punkte": 25},
+    ],
+}
+
 TEXTE: dict[str, dict[str, str]] = {
     "de": {
         "familienziel_text": "Pizza- und Filmabend 🍕",
@@ -173,6 +273,8 @@ TEXTE: dict[str, dict[str, str]] = {
         "farbe_unbekannt": "Unbekannte Farbe „{farbe}“.",
         "nicht_eingerichtet": "Der Familienplaner ist nicht eingerichtet.",
         "start": "Start",
+        "keine_liste": "{name} hat keine Aufgabenliste.",
+        "aufgabe_unbekannt": "Unbekannte Aufgabe „{aufgabe}“.",
         "station_titel": "🗺️ Station erreicht: {emoji} {name}",
         "station_text": "Die ganze Familie hat es geschafft! Belohnung: {belohnung}",
         "station_aufgabe": "🎁 {emoji} {name}: {belohnung}",
@@ -195,6 +297,8 @@ TEXTE: dict[str, dict[str, str]] = {
         "farbe_unbekannt": "Unknown colour “{farbe}”.",
         "nicht_eingerichtet": "Familienplaner is not set up.",
         "start": "Start",
+        "keine_liste": "{name} has no task list.",
+        "aufgabe_unbekannt": "Unknown task “{aufgabe}”.",
         "station_titel": "🗺️ Station reached: {emoji} {name}",
         "station_text": "The whole family made it! Reward: {belohnung}",
         "station_aufgabe": "🎁 {emoji} {name}: {belohnung}",
@@ -318,6 +422,7 @@ class AufgabenManager:
             "belohnungen": gespeichert.get("belohnungen") or deepcopy(STANDARD_BELOHNUNGEN[lang]),
             "rotation": gespeichert.get("rotation", {"zaehler": {}, "zuletzt": {}, "datum": None}),
             "stationen": gespeichert.get("stationen") or deepcopy(STANDARD_STATIONEN[lang]),
+            "katalog": gespeichert.get("katalog") or deepcopy(STANDARD_KATALOG[lang]),
             "insel": gespeichert.get("insel", {"nummer": 1, "punkte": 0, "erreicht": 0}),
         }
         if not self.daten["einstellungen"].get("familienziel_text"):
@@ -483,6 +588,19 @@ class AufgabenManager:
             except HomeAssistantError as err:
                 _LOGGER.warning("Station %s konnte nicht eingetragen werden: %s", s["name"], err)
 
+    async def async_aufgabe_nehmen(self, slug: str, titel: str, punkte: int) -> dict[str, Any]:
+        """Aufgabe aus dem Katalog in die Liste einer Person legen (fällig heute)."""
+        person = self.coord.person(slug)
+        if not person or not person.todo_entity:
+            raise ServiceValidationError(_t(self.hass, "keine_liste", name=self.coord.namen.get(slug, slug)))
+        eintrag = f"{titel} +{punkte}" if punkte else titel
+        await self.hass.services.async_call(
+            "todo", "add_item",
+            {"entity_id": person.todo_entity, "item": eintrag, "due_date": dt_util.now().date().isoformat()},
+            blocking=True,
+        )
+        return {"person": slug, "liste": person.todo_entity, "aufgabe": eintrag}
+
     def insel_neu(self) -> None:
         insel = self.daten["insel"]
         self.daten["insel"] = {"nummer": int(insel.get("nummer", 1)) + 1, "punkte": 0, "erreicht": 0}
@@ -643,6 +761,7 @@ class AufgabenManager:
             "familien_liste": self.coord.opt.get(CONF_FAMILY_TODO),
             "entitaeten": self.entitaeten(),
             "schatzkarte": self.schatzkarte_attribute(),
+            "katalog": self.daten["katalog"],
         }
 
     def entitaeten(self) -> dict[str, str]:
@@ -704,6 +823,19 @@ SCHEMA_STATIONEN = vol.Schema({
         vol.Required("punkte"): vol.All(vol.Coerce(int), vol.Range(min=1)),
         vol.Optional("emoji", default="📍"): cv.string,
     })], vol.Length(min=1)),
+})
+SCHEMA_NEHMEN = vol.Schema({
+    vol.Required("aufgabe"): cv.string,
+    vol.Optional("person"): cv.string,
+    vol.Optional("punkte"): vol.All(vol.Coerce(int), vol.Range(min=0)),
+})
+SCHEMA_KATALOG = vol.Schema({
+    vol.Required("aufgaben"): [vol.Schema({
+        vol.Required("titel"): cv.string,
+        vol.Optional("key"): cv.slug,
+        vol.Optional("bereich", default="sonstiges"): cv.string,
+        vol.Optional("punkte", default=10): vol.All(vol.Coerce(int), vol.Range(min=0)),
+    })],
 })
 SCHEMA_DIENSTE = vol.Schema({
     vol.Required("dienste"): [vol.Schema({
@@ -812,7 +944,7 @@ def _dienste_registrieren(hass: HomeAssistant) -> None:
         m = _manager(hass)
         neu = []
         for i, d in enumerate(call.data["dienste"]):
-            key = d.get("key") or cv.slug(d["titel"].encode("ascii", "ignore").decode().strip() or f"dienst_{i}") or f"dienst_{i}"
+            key = d.get("key") or slugify(d["titel"]) or f"dienst_{i}"
             neu.append({**d, "key": key})
         m.daten["dienste"] = neu
         m._geaendert()
@@ -837,6 +969,39 @@ def _dienste_registrieren(hass: HomeAssistant) -> None:
         await nur_admin(call)
         _manager(hass).insel_neu()
 
+    async def nehmen(call: ServiceCall) -> ServiceResponse:
+        m = _manager(hass)
+        slug = (call.data.get("person") or "").lower() or m._slug_von_benutzer(call.context.user_id)
+        if not slug or slug not in m.daten["personen"]:
+            raise ServiceValidationError(_t(hass, "wer_unbekannt"))
+        await _darf_fuer(hass, m, call, slug)
+        wunsch = call.data["aufgabe"]
+        a = next((x for x in m.daten["katalog"] if wunsch in (x.get("key"), x["titel"])), None)
+        if a is None and not call.context.user_id:
+            a = {"titel": wunsch, "punkte": int(m.einstellungen["punkte_pro_aufgabe"])}  # Automationen dürfen frei
+        if a is None:
+            raise ServiceValidationError(_t(hass, "aufgabe_unbekannt", aufgabe=wunsch))
+        punkte = call.data.get("punkte", a["punkte"])
+        if call.context.user_id and "punkte" in call.data:
+            user = await hass.auth.async_get_user(call.context.user_id)
+            if not (user and user.is_admin):
+                punkte = a["punkte"]  # Kinder können die Punkte nicht selbst erhöhen
+        return await m.async_aufgabe_nehmen(slug, a["titel"], int(punkte))
+
+    async def katalog(call: ServiceCall) -> None:
+        await nur_admin(call)
+        m = _manager(hass)
+        neu = []
+        for i, a in enumerate(call.data["aufgaben"]):
+            key = a.get("key") or slugify(a["titel"]) or f"aufgabe_{i}"
+            neu.append({**a, "key": key})
+        m.daten["katalog"] = neu
+        m._geaendert()
+
+    hass.services.async_register(
+        DOMAIN, "aufgabe_nehmen", nehmen, schema=SCHEMA_NEHMEN, supports_response=SupportsResponse.OPTIONAL
+    )
+    hass.services.async_register(DOMAIN, "katalog_festlegen", katalog, schema=SCHEMA_KATALOG)
     hass.services.async_register(DOMAIN, "schatzkarte_festlegen", stationen, schema=SCHEMA_STATIONEN)
     hass.services.async_register(DOMAIN, "neue_insel", insel_neu, schema=vol.Schema({}))
 

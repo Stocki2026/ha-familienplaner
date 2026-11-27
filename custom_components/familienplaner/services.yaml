@@ -168,3 +168,28 @@ schatzkarte_festlegen:
         object:
 
 neue_insel:
+
+aufgabe_nehmen:
+  fields:
+    aufgabe:
+      required: true
+      example: "staubsaugen"
+      selector:
+        text:
+    person:
+      example: "ben"
+      selector:
+        text:
+    punkte:
+      selector:
+        number:
+          min: 0
+          max: 1000
+
+katalog_festlegen:
+  fields:
+    aufgaben:
+      required: true
+      example: '[{"titel": "🧹 Staubsaugen", "punkte": 25, "bereich": "putzen"}]'
+      selector:
+        object:

@@ -6,7 +6,7 @@ import pytest
 
 from homeassistant.core import Context, HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.exceptions import Unauthorized
+from homeassistant.exceptions import ServiceValidationError, Unauthorized
 from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
 
@@ -239,6 +239,46 @@ async def test_schatzkarte(hass: HomeAssistant, planer):
     assert m.daten["insel"] == {"nummer": 2, "punkte": 0, "erreicht": 0}
 
 
+async def test_aufgaben_katalog(hass: HomeAssistant, planer):
+    """Vorgefertigte Haushaltsaufgaben: Kinder nehmen sich selbst welche, Eltern dürfen sie verteilen."""
+    m = planer["m"]
+    katalog = hass.states.get(_eid(hass, "sensor.rennen")).attributes["katalog"]
+    assert len(katalog) > 40 and {"kueche", "putzen", "waesche", "ordnung", "draussen", "tiere"} <= {a["bereich"] for a in katalog}
+    assert len({a["key"] for a in katalog}) == len(katalog)
+    ben = Context(user_id=planer["ben"].id)
+
+    async def titel(liste):
+        items = await hass.services.async_call("todo", "get_items", {"entity_id": liste}, blocking=True,
+                                               return_response=True)
+        return [(i["summary"], i.get("due")) for i in items[liste]["items"]]
+
+    # Ben nimmt sich selbst eine Aufgabe; eigene Punkte setzen darf er nicht
+    antwort = await hass.services.async_call(DOMAIN, "aufgabe_nehmen", {"aufgabe": "staubsaugen", "punkte": 500},
+                                             blocking=True, return_response=True, context=ben)
+    assert antwort == {"person": "ben", "liste": "todo.ben", "aufgabe": "🧹 Vacuum +25"}
+    assert await titel("todo.ben") == [("🧹 Vacuum +25", "2026-11-27")]
+    # ... und nicht für Anna
+    with pytest.raises(Unauthorized):
+        await hass.services.async_call(DOMAIN, "aufgabe_nehmen", {"aufgabe": "staubsaugen", "person": "anna"},
+                                       blocking=True, context=ben)
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(DOMAIN, "aufgabe_nehmen", {"aufgabe": "gibt es nicht"}, blocking=True, context=ben)
+    # Anna (Admin) gibt Ben eine Aufgabe mit Extra-Punkten
+    await hass.services.async_call(DOMAIN, "aufgabe_nehmen", {"aufgabe": "🐶 Walk the dog", "person": "ben", "punkte": 30},
+                                   blocking=True, context=Context(user_id=planer["anna"].id))
+    assert ("🐶 Walk the dog +30", "2026-11-27") in await titel("todo.ben")
+    # Abhaken bringt die Punkte
+    await _todo(hass, "update_item", {"entity_id": "todo.ben", "item": "🧹 Vacuum +25", "status": "completed"})
+    assert m.stand("ben")["rennen"] == 25
+
+    # Eigener Katalog (nur Admins)
+    with pytest.raises(Unauthorized):
+        await hass.services.async_call(DOMAIN, "katalog_festlegen", {"aufgaben": [{"titel": "x"}]}, blocking=True, context=ben)
+    await hass.services.async_call(DOMAIN, "katalog_festlegen", {"aufgaben": [
+        {"titel": "🦜 Feed the parrot", "punkte": 7, "bereich": "tiere"}]}, blocking=True)
+    assert m.daten["katalog"] == [{"titel": "🦜 Feed the parrot", "punkte": 7, "bereich": "tiere", "key": "feed_the_parrot"}]
+
+
 async def test_punkte_bleiben_nach_neustart(hass: HomeAssistant, planer):
     m = planer["m"]
     await m.async_buchen("ben", 42, 1)
@@ -268,3 +308,4 @@ async def test_deutsch(hass: HomeAssistant, enable_custom_integrations, tmp_path
     assert aufgaben._t(hass, "belohnung_aufgabe", name="Carla", belohnung="Kino") == "🎁 Carla löst ein: Kino"
     assert aufgaben.level(260, "en")[1] == "Kart talent"
     assert m.daten["stationen"][0]["name"] == "Muschelstrand"
+    assert m.daten["katalog"][0]["titel"] == "🍽️ Spülmaschine ausräumen"
