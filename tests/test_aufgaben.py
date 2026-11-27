@@ -3,6 +3,7 @@
 
 from freezegun.api import FrozenDateTimeFactory
 import pytest
+import voluptuous as vol
 
 from homeassistant.core import Context, HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
@@ -161,6 +162,21 @@ async def test_fahrzeug_waehlen(hass: HomeAssistant, planer):
     await hass.services.async_call(DOMAIN, "fahrzeug_waehlen", {"person": "ben", "fahrzeug": "Rakete"},
                                    blocking=True, context=Context(user_id=planer["anna"].id))
     assert m.stand("ben")["fahrzeug"] == "Rakete"
+
+    # Monster-Truck und eigenes Bild statt Fahrzeug
+    await hass.services.async_call(DOMAIN, "fahrzeug_waehlen",
+                                   {"person": "ben", "fahrzeug": "Monstertruck", "bild": "/local/familienplaner/ben.png"},
+                                   blocking=True, context=ben)
+    await hass.async_block_till_done()
+    fahrer = hass.states.get(_eid(hass, "sensor.rennen")).attributes["fahrer"]
+    b = next(f for f in fahrer if f["slug"] == "ben")
+    assert b["fahrzeug"] == "Monstertruck" and b["bild"] == "/local/familienplaner/ben.png"
+    for schlecht in ("javascript:alert(1)", "/local/a b.png", '/local/x".png', "http://example.org/x.png"):
+        with pytest.raises(vol.Invalid):
+            await hass.services.async_call(DOMAIN, "fahrzeug_waehlen", {"person": "ben", "bild": schlecht},
+                                           blocking=True, context=ben)
+    await hass.services.async_call(DOMAIN, "fahrzeug_waehlen", {"person": "ben", "bild": ""}, blocking=True, context=ben)
+    assert m.stand("ben")["bild"] is None
 
 
 async def test_rotation_und_sieg(hass: HomeAssistant, planer, freezer: FrozenDateTimeFactory):

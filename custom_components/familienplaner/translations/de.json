@@ -229,6 +229,10 @@
         "farbe": {
           "name": "Farbe",
           "description": "Farbname (z. B. Lila) oder Hex-Wert."
+        },
+        "bild": {
+          "name": "Eigenes Bild",
+          "description": "Pfad zu einem eigenen Bild (/local/… aus /config/www oder https://…), das statt des Fahrzeugs gezeigt wird. Leer entfernt es."
         }
       }
     },

@@ -31,8 +31,95 @@ const RC_ICONS = {
   haken: "M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z",
 };
 
+/* Monster-Trucks: eigene, originale Motive. Alle fahren nach rechts, mit Riesenreifen und Gesicht vorne.
+   farbe = Karosserie ("var(--c)" = Personenfarbe), hinten = Teile hinter der Karosserie, vorne = Teile darüber. */
+function rcTruck({ farbe = "var(--c)", hinten = "", vorne = "", mund = "" }) {
+  const rad = (x) =>
+    `<g><circle cx="${x}" cy="18.6" r="4.4" fill="#2B2926"/><circle cx="${x}" cy="18.6" r="3.6" fill="none" stroke="#4A4744" stroke-width="1.1" stroke-dasharray="1.1 1"/><circle cx="${x}" cy="18.6" r="1.6" fill="#C9C4BC"/></g>`;
+  return `<svg viewBox="0 0 24 24" aria-hidden="true" class="multi">
+  <rect x="5.2" y="12.4" width="13.6" height="2.6" rx="1" fill="#4A4744"/>
+  ${hinten}
+  <path style="fill:${farbe}" d="M2.6 13.2V9.8C2.6 9 3.2 8.6 3.9 8.6H9.4L11 5.1C11.3 4.6 11.7 4.4 12.2 4.4H16C16.6 4.4 17 4.6 17.3 5.1L19.1 8.6L21.7 9.1C22.6 9.3 23 9.8 23 10.6V13.2Z"/>
+  <path d="M12.1 5.4H15.8L17.5 8.6H10.6Z" fill="#DDF1FA"/>
+  <circle cx="13.3" cy="7.05" r="1.05" fill="#fff"/><circle cx="15.6" cy="7.05" r="1.05" fill="#fff"/>
+  <circle cx="13.65" cy="7.2" r=".5" fill="#2B2926"/><circle cx="15.95" cy="7.2" r=".5" fill="#2B2926"/>
+  <path d="M12.5 5.85Q13.3 5.35 14.1 5.85M14.8 5.85Q15.6 5.35 16.4 5.85" stroke="#2B2926" stroke-width=".4" fill="none" stroke-linecap="round"/>
+  ${mund || `<path d="M19.7 10.4Q21.2 12.7 22.7 10.4Z" fill="#fff" stroke="#2B2926" stroke-width=".35"/>`}
+  ${vorne}
+  ${rad(6.4)}${rad(18)}
+</svg>`;
+}
+
+const RC_FLAMMEN =
+  `<path d="M3.4 12.8Q4.4 11.2 5.4 12Q6 10.2 7.4 11.4Q8.2 9.7 9.6 11.2Q10.6 10 11.6 11.6Q12.4 10.7 13.2 12.1L13.4 12.8Z" fill="#FFC93C"/>` +
+  `<path d="M4.6 12.8Q5.4 11.9 6.1 12.4Q6.8 11.3 7.8 12.1Q8.6 11.1 9.6 12.2Q10.4 11.5 11.2 12.4L11.4 12.8Z" fill="#F0743C"/>`;
+
+const RC_TRUCKS = {
+  // Flammen-Truck in der eigenen Farbe
+  monster: rcTruck({ vorne: RC_FLAMMEN }),
+  // Hai: Rückenflosse, heller Bauch, spitze Zähne
+  hai: rcTruck({
+    farbe: "#6F8FA6",
+    hinten: `<path d="M12.6 4.8L14.4 0.9Q15.2 2.6 16.2 4.8Z" fill="#56748A"/>`,
+    vorne: `<path d="M2.6 11.6H23V13.2H2.6Z" fill="#EEF3F6"/><path d="M5 9.8L6 10.6L5 11.4M7 9.8L8 10.6L7 11.4" stroke="#56748A" stroke-width=".4" fill="none"/>`,
+    mund: `<path d="M19.6 10.2Q21.2 13 22.8 10.2Z" fill="#2B2926"/><path d="M19.9 10.2L20.3 11L20.7 10.2ZM21.1 10.2L21.5 11.2L21.9 10.2ZM22.2 10.2L22.5 10.9L22.7 10.2Z" fill="#fff"/>`,
+  }),
+  // Dino: Zacken auf Motorhaube und Dach, Flecken
+  dino: rcTruck({
+    farbe: "#5E9E4A",
+    hinten: `<path d="M3.2 8.8L4 6.9L4.8 8.8ZM5.3 8.8L6.1 6.6L6.9 8.8ZM7.4 8.8L8.2 6.9L9 8.8ZM11.9 4.6L12.8 2.7L13.7 4.6ZM14.1 4.6L15 2.5L15.9 4.6Z" fill="#F0A23B"/>`,
+    vorne: `<circle cx="5" cy="10.8" r=".8" fill="#4A8239"/><circle cx="8.2" cy="11.6" r=".6" fill="#4A8239"/><circle cx="11.4" cy="10.4" r=".7" fill="#4A8239"/>`,
+  }),
+  // Blitz: gelb mit schwarzem Blitz
+  blitz: rcTruck({
+    farbe: "#F2C230",
+    vorne: `<path d="M4.2 12.7L7.4 9.4L7.6 10.9L11.4 8.9L8.6 12.7L8.3 11.3Z" fill="#2B2926"/>`,
+  }),
+  // Polizei: dunkelblau/weiß, Blaulicht und Stern
+  polizei: rcTruck({
+    farbe: "#2F4E86",
+    hinten: `<rect x="12.2" y="3.1" width="1.8" height="1.4" rx=".4" fill="#E53935"/><rect x="14.1" y="3.1" width="1.8" height="1.4" rx=".4" fill="#1E88E5"/>`,
+    vorne: `<path d="M2.6 11H23V13.2H2.6Z" fill="#F5F5F5"/><path d="M6.4 9.2L6.75 10L7.6 10.05L6.95 10.6L7.15 11.45L6.4 11L5.65 11.45L5.85 10.6L5.2 10.05L6.05 10Z" fill="#F2C230"/>`,
+  }),
+  // Feuerwehr: rot, Leiter auf dem Dach, Warnlicht
+  feuerwehr: rcTruck({
+    farbe: "#D2463C",
+    hinten: `<rect x="14" y="3.2" width="1.6" height="1.3" rx=".4" fill="#FFB300"/>`,
+    vorne: `<path d="M2.6 11.4H23V12.2H2.6Z" fill="#fff"/><g stroke="#C9C4BC" stroke-width=".45"><path d="M3.4 7.6H10.2M3.4 8.4H10.2"/><path d="M4.2 7.6V8.4M5.6 7.6V8.4M7 7.6V8.4M8.4 7.6V8.4M9.8 7.6V8.4"/></g>`,
+  }),
+  // Bagger: Baustellen-Gelb, Warnstreifen, Schaufel vorne
+  bagger: rcTruck({
+    farbe: "#F2A33A",
+    hinten: `<rect x="14" y="3.2" width="1.6" height="1.3" rx=".4" fill="#FF7043"/>`,
+    vorne: `<path d="M3 11.6H12V12.8H3Z" fill="#2B2926"/><path d="M3.4 12.8L4.4 11.6H5.4L4.4 12.8ZM5.8 12.8L6.8 11.6H7.8L6.8 12.8ZM8.2 12.8L9.2 11.6H10.2L9.2 12.8ZM10.6 12.8L11.6 11.6H12L11 12.8Z" fill="#F2C230"/><path d="M22.4 11.4L24 10.6V14.4L22.4 13.6Z" fill="#6B6560"/>`,
+  }),
+  // Einhorn: rosa, Horn auf der Haube, Regenbogen und Glitzer
+  einhorn: rcTruck({
+    farbe: "#E79CC2",
+    hinten: `<circle cx="11.2" cy="5.3" r="1" fill="#9B7BC4"/><circle cx="10.4" cy="6.3" r=".9" fill="#7FC4E8"/><circle cx="9.9" cy="7.4" r=".8" fill="#9B7BC4"/>`,
+    vorne: `<path d="M20 9L21 5.1L21.8 9.2Z" fill="#FFD75E"/><path d="M20.4 7.6L21.4 7.3M20.2 8.4L21.6 8.1" stroke="#E5A93C" stroke-width=".3"/>` +
+      `<path d="M3 11.2Q8 9.8 13 11.2" stroke="#E53935" stroke-width=".5" fill="none"/><path d="M3 11.8Q8 10.4 13 11.8" stroke="#F2C230" stroke-width=".5" fill="none"/><path d="M3 12.4Q8 11 13 12.4" stroke="#1E88E5" stroke-width=".5" fill="none"/>` +
+      `<path d="M5 9.6L5.25 10.15L5.8 10.4L5.25 10.65L5 11.2L4.75 10.65L4.2 10.4L4.75 10.15Z" fill="#fff"/><path d="M17.4 10.4L17.6 10.8L18 11L17.6 11.2L17.4 11.6L17.2 11.2L16.8 11L17.2 10.8Z" fill="#fff"/>`,
+  }),
+  // Rennsport: eigene Farbe, Heckspoiler, Startnummer
+  renntruck: rcTruck({
+    hinten: `<path d="M1.6 6.4H5.6V7.2H1.6Z" fill="#2B2926"/><rect x="3.3" y="7.2" width=".5" height="1.5" fill="#2B2926"/>`,
+    vorne: `<circle cx="7" cy="10.8" r="1.4" fill="#fff"/><text x="7" y="11.45" font-size="1.9" font-weight="900" text-anchor="middle" fill="#2B2926" font-family="sans-serif">1</text>` +
+      `<path d="M10 12.2H11V12.8H10ZM11 11.6H12V12.2H11ZM12 12.2H13V12.8H12Z" fill="#2B2926"/>`,
+  }),
+};
+
 /* Fahrzeuge: Schlüsselwort im Auswahltext -> Icon + Ausrichtung (alle fahren nach rechts) */
 const RC_FAHRZEUGE = [
+  { key: "hai-truck", svg: RC_TRUCKS.hai, gallop: true },
+  { key: "dino-truck", svg: RC_TRUCKS.dino, gallop: true },
+  { key: "blitz-truck", svg: RC_TRUCKS.blitz, gallop: true },
+  { key: "polizei-truck", svg: RC_TRUCKS.polizei, gallop: true },
+  { key: "feuerwehr-truck", svg: RC_TRUCKS.feuerwehr, gallop: true },
+  { key: "bagger-truck", svg: RC_TRUCKS.bagger, gallop: true },
+  { key: "einhorn-truck", svg: RC_TRUCKS.einhorn, gallop: true },
+  { key: "renn-truck", svg: RC_TRUCKS.renntruck, gallop: true },
+  { key: "monster", svg: RC_TRUCKS.monster, gallop: true },
   { key: "renn", icon: "rennwagen", flip: true },
   { key: "sport", icon: "rennwagen", flip: true },
   { key: "motorrad", icon: "motorrad" },
@@ -100,6 +187,10 @@ const RC_TEXTE = {
     schliessen: "Schließen",
     fahrzeug: "Fahrzeug",
     farbe: "Farbe",
+    bild: "Eigenes Bild",
+    bild_ok: "Übernehmen",
+    bild_weg: "Entfernen",
+    bild_hint: "Bild nach /config/www/ legen und hier /local/… eintragen. Es ersetzt das Fahrzeug.",
   },
   en: {
     titel: "Family race",
@@ -124,11 +215,17 @@ const RC_TEXTE = {
     schliessen: "Close",
     fahrzeug: "Vehicle",
     farbe: "Colour",
+    bild: "Own picture",
+    bild_ok: "Apply",
+    bild_weg: "Remove",
+    bild_hint: "Put a picture in /config/www/ and enter /local/… here. It replaces the vehicle.",
   },
 };
 const RC_NAMEN_EN = {
   Auto: "Car", Rennwagen: "Race car", Motorrad: "Motorbike", Pferd: "Horse", Einhorn: "Unicorn", Fahrrad: "Bicycle",
-  Traktor: "Tractor", Rakete: "Rocket", Blau: "Blue", Pink: "Pink", Orange: "Orange", "Grün": "Green", Rot: "Red",
+  Traktor: "Tractor", Rakete: "Rocket", Monstertruck: "Monster truck", "Hai-Truck": "Shark truck",
+  "Dino-Truck": "Dino truck", "Blitz-Truck": "Lightning truck", "Polizei-Truck": "Police truck", "Feuerwehr-Truck": "Fire truck",
+  "Bagger-Truck": "Digger truck", "Einhorn-Truck": "Unicorn truck", "Renn-Truck": "Racing truck", Blau: "Blue", Pink: "Pink", Orange: "Orange", "Grün": "Green", Rot: "Red",
   Gelb: "Yellow", Lila: "Purple", "Türkis": "Turquoise", Braun: "Brown", Grau: "Grey", Schwarz: "Black",
   "Weiß": "White", Gold: "Gold", Silber: "Silver",
 };
@@ -177,7 +274,9 @@ function rcSvg(name, cls = "") {
   return `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>`;
 }
 
-function rcVehicleSvg(f) {
+function rcVehicleSvg(f, bild) {
+  if (bild) return `<img class="eigen" src="${rcEsc(bild)}" alt="" loading="lazy">`;
+  if (f.svg) return f.svg;
   if (f.mdi) return `<ha-icon icon="${rcEsc(f.mdi)}"></ha-icon>`;
   const tf = [];
   if (f.flip) tf.push("scale(-1,1) translate(-24,0)");
@@ -261,6 +360,7 @@ class RennstreckeCard extends HTMLElement {
       heute: Number(f.heute) || 0,
       gesamt: Number(f.gesamt) || 0,
       konto: Number(f.konto) || 0,
+      bild: f.bild || null,
     }));
     if (fahrer.length !== this._config.fahrer.length || fahrer.some((f, i) => f.slug !== this._config.fahrer[i].slug)) {
       this._built = false;
@@ -348,6 +448,7 @@ class RennstreckeCard extends HTMLElement {
         konto: f.konto ? rcNum(hass, f.konto, 0) : null,
         level: gesamt !== null ? { ...rcLevel(gesamt, rcSprache(hass)), gesamt } : null,
         darf: this._darf(f),
+        bild: f.bild && /^(\/local\/|\/media\/|\/api\/|https:\/\/)[^\s"'<>]+$/.test(f.bild) ? f.bild : null,
       };
     });
     const max = Math.max(...fahrer.map((f) => f.punkte));
@@ -468,9 +569,9 @@ class RennstreckeCard extends HTMLElement {
       car.classList.toggle("leader", f.fuehrt);
       car.classList.toggle("finished", f.pct >= 1);
       car.title = t.punkte_von(f.name, f.punkte);
-      const key = `${f.fzText}|${f.farbe}`;
+      const key = `${f.fzText}|${f.farbe}|${f.bild}`;
       if (car.dataset.key !== key) {
-        car.querySelector(".body").innerHTML = rcVehicleSvg(f.fz);
+        car.querySelector(".body").innerHTML = rcVehicleSvg(f.fz, f.bild);
         car.dataset.key = key;
       }
       car.querySelector(".tag-txt").textContent = `${f.name} · ${Math.round(f.punkte)}`;
@@ -488,7 +589,7 @@ class RennstreckeCard extends HTMLElement {
       const chip = root.querySelector(`.chip[data-i="${f.i}"]`);
       chip.style.setProperty("--c", f.farbe);
       chip.classList.toggle("can-edit", f.darf);
-      chip.querySelector(".chip-car").innerHTML = rcVehicleSvg(f.fz);
+      chip.querySelector(".chip-car").innerHTML = rcVehicleSvg(f.fz, f.bild);
       chip.querySelector(".chip-name").textContent = `${f.platz}. ${f.name}`;
       const sub = [];
       if (f.level) sub.push(`Lv ${f.level.lvl} ${f.level.name}`);
@@ -584,7 +685,7 @@ class RennstreckeCard extends HTMLElement {
     g.innerHTML = `
       <div class="g-box" role="dialog" aria-label="${rcEsc(t.garage(d.name))}">
         <div class="g-head">
-          <div class="g-preview" style="--c:${d.farbe}">${rcVehicleSvg(d.fz)}</div>
+          <div class="g-preview" style="--c:${d.farbe}">${rcVehicleSvg(d.fz, d.bild)}</div>
           <div><b>${rcEsc(t.garage(d.name))}</b><small>${t.garage_sub}</small></div>
           <button class="g-close" aria-label="${t.schliessen}">${rcSvg("schliessen")}</button>
         </div>
@@ -612,6 +713,17 @@ class RennstreckeCard extends HTMLElement {
         </div>`
             : ""
         }
+        ${
+          this._entityMode
+            ? `<div class="g-label">${t.bild}</div>
+        <div class="g-bild">
+          <input type="text" inputmode="url" placeholder="/local/familienplaner/name.png" value="${rcEsc(d.bild || "")}" aria-label="${t.bild}">
+          <button class="g-btn ok">${t.bild_ok}</button>
+          ${d.bild ? `<button class="g-btn weg">${t.bild_weg}</button>` : ""}
+        </div>
+        <small class="g-hint">${t.bild_hint}</small>`
+            : ""
+        }
       </div>`;
     g.hidden = false;
     g.onclick = (ev) => {
@@ -620,6 +732,12 @@ class RennstreckeCard extends HTMLElement {
     g.querySelector(".g-close").onclick = () => this._closeGarage();
     g.querySelectorAll(".g-opt").forEach((b) => (b.onclick = () => this._select(f, "fahrzeug", b.dataset.fz)));
     g.querySelectorAll(".g-col").forEach((b) => (b.onclick = () => this._select(f, "farbe", b.dataset.fa)));
+    const feld = g.querySelector(".g-bild input");
+    if (feld) {
+      g.querySelector(".g-btn.ok").onclick = () => this._select(f, "bild", feld.value.trim());
+      const weg = g.querySelector(".g-btn.weg");
+      if (weg) weg.onclick = () => this._select(f, "bild", "");
+    }
   }
 
   _select(f, feld, option) {
@@ -632,6 +750,17 @@ class RennstreckeCard extends HTMLElement {
 }
 
 RennstreckeCard.styles = `
+  .eigen { width: 52px; height: 52px; object-fit: contain; filter: drop-shadow(0 2px 2px rgba(0,0,0,.35)); }
+  .chip-car .eigen { width: 30px; height: 30px; }
+  .g-preview .eigen { width: 40px; height: 40px; }
+  .car.gallop .body .eigen { animation: gallop .55s ease-in-out infinite; transform-origin: 50% 100%; }
+  .g-bild { display:flex; gap: 8px; flex-wrap: wrap; }
+  .g-bild input { flex: 1 1 180px; min-width: 0; font: inherit; padding: 9px 12px; border-radius: 12px;
+    border: 1px solid var(--divider-color, #ccc); background: var(--card-background-color, #fff); color: var(--primary-text-color); }
+  .g-btn { font: inherit; font-weight: 700; padding: 9px 14px; border-radius: 12px; border: none; cursor: pointer;
+    background: var(--primary-color); color: #fff; }
+  .g-btn.weg { background: color-mix(in srgb, var(--secondary-text-color) 15%, transparent); color: var(--primary-text-color); }
+  .g-hint { display:block; margin-top: 6px; color: var(--secondary-text-color); font-size: 12px; }
   :host { --asph: #5A5651; --asph2: #514D48; --kerb1: #C8665A; --kerb2: #F3EDE3; --grass: #A9C49A; display:block; }
   ha-card { display: block; position: relative; overflow: hidden; padding: 18px 18px 16px; }
   .head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom: 12px; }
