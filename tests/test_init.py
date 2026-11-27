@@ -209,3 +209,13 @@ async def test_frontend_auch_ohne_eintrag(hass: HomeAssistant, enable_custom_int
     assert await async_setup_component(hass, DOMAIN, {})
     urls = list(hass.data[DATA_EXTRA_MODULE_URL].urls)
     assert any("/familienplaner_static/familienplaner-strategy.js?v=" in u for u in urls), urls
+
+
+async def test_cockpit_karte_wird_geladen(hass: HomeAssistant, enable_custom_integrations):
+    """Die Cockpit-Karte wird zusammen mit der Strategie ausgeliefert."""
+    from homeassistant.components.frontend import DATA_EXTRA_MODULE_URL
+    from homeassistant.setup import async_setup_component
+
+    assert await async_setup_component(hass, DOMAIN, {})
+    urls = list(hass.data[DATA_EXTRA_MODULE_URL].urls)
+    assert any("/familienplaner_static/familienplaner-cockpit.js?v=" in u for u in urls), urls
