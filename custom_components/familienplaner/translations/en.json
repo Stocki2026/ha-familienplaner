@@ -229,6 +229,10 @@
         "farbe": {
           "name": "Colour",
           "description": "Colour name or hex value."
+        },
+        "bild": {
+          "name": "Own picture",
+          "description": "Path to your own picture (/local/… from /config/www, or https://…) shown instead of the vehicle. Empty removes it."
         }
       }
     },

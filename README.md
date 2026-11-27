@@ -89,6 +89,9 @@ Die Ansicht **Aufgaben** erscheint automatisch im Familienplaner-Dashboard:
 - **Familien-Rennen**: Alle fahren auf einer Rennstrecke, Position nach Punkten. Wer zuerst die Ziellinie erreicht,
   gewinnt und bekommt einen Sieger-Bonus. Fahrzeug (Auto, Rennwagen, Motorrad, Pferd, Einhorn, Fahrrad, Traktor,
   Rakete) und Farbe wählt jede Person in der Garage selbst (Fahrzeug antippen). Kinder nur ihr eigenes, Admins alle.
+  Dazu eine eigene Monster-Truck-Flotte mit Riesenreifen und Gesicht: Monstertruck mit Flammen, Hai-, Dino-, Blitz-,
+  Polizei-, Feuerwehr-, Bagger-, Einhorn- und Renn-Truck. Statt eines Fahrzeugs geht auch ein **eigenes Bild**:
+  Datei nach `/config/www/` legen und in der Garage `/local/…` eintragen (bleibt nur bei euch, nicht im Repo).
 - **Serien, Level, Familienziel**: ab 3 Tagen am Stück Serien-Bonus, Level nach Gesamtpunkten, gemeinsames Ziel
   (z. B. Pizzaabend), auf das alle Punkte einzahlen.
 - **Große Bilder**: Die Aufgaben jeder Person erscheinen als große Bild-Kacheln, damit auch Kinder, die noch nicht

@@ -144,8 +144,21 @@ fahrzeug_waehlen:
             - Fahrrad
             - Traktor
             - Rakete
+            - Monstertruck
+            - Hai-Truck
+            - Dino-Truck
+            - Blitz-Truck
+            - Polizei-Truck
+            - Feuerwehr-Truck
+            - Bagger-Truck
+            - Einhorn-Truck
+            - Renn-Truck
     farbe:
       example: Lila
+      selector:
+        text:
+    bild:
+      example: /local/familienplaner/truck.png
       selector:
         text:
 

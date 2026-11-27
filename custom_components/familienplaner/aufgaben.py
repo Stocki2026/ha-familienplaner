@@ -64,7 +64,14 @@ _LOGGER = logging.getLogger(__name__)
 
 SPEICHER_VERSION = 1
 
-FAHRZEUGE = ["Auto", "Rennwagen", "Motorrad", "Pferd", "Einhorn", "Fahrrad", "Traktor", "Rakete"]
+FAHRZEUGE = [
+    "Auto", "Rennwagen", "Motorrad", "Pferd", "Einhorn", "Fahrrad", "Traktor", "Rakete",
+    # Eigene Monster-Truck-Flotte (Riesenreifen, Gesicht vorne)
+    "Monstertruck", "Hai-Truck", "Dino-Truck", "Blitz-Truck", "Polizei-Truck", "Feuerwehr-Truck", "Bagger-Truck",
+    "Einhorn-Truck", "Renn-Truck",
+]
+# Eigenes Bild statt Fahrzeug: nur lokale HA-Pfade oder https, keine Leerzeichen/Anführungszeichen.
+BILD_MUSTER = re.compile(r"(/local/|/media/|/api/|https://)[^\s\"'<>]+$")
 FARBEN: dict[str, str] = {
     "Blau": "#5B8DB8",
     "Pink": "#D9849B",
@@ -742,6 +749,7 @@ class AufgabenManager:
                 "level_name": lname,
                 "naechstes_level": naechste,
                 "fahrzeug": st["fahrzeug"],
+                "bild": st.get("bild"),
                 "farbe": st["farbe"],
                 "farbe_hex": farbe_hex(st["farbe"], p.farbe),
             })
@@ -807,6 +815,7 @@ SCHEMA_EINLOESEN = vol.Schema({
 SCHEMA_FAHRZEUG = vol.Schema({
     vol.Required("person"): cv.string,
     vol.Optional("fahrzeug"): vol.In(FAHRZEUGE),
+    vol.Optional("bild"): vol.Any("", vol.All(cv.string, vol.Match(BILD_MUSTER))),
     vol.Optional("farbe"): cv.string,
 })
 SCHEMA_BELOHNUNGEN = vol.Schema({
@@ -911,6 +920,8 @@ def _dienste_registrieren(hass: HomeAssistant) -> None:
         st = m.stand(slug)
         if "fahrzeug" in call.data:
             st["fahrzeug"] = call.data["fahrzeug"]
+        if "bild" in call.data:
+            st["bild"] = call.data["bild"] or None
         if "farbe" in call.data:
             farbe = call.data["farbe"].strip()
             if farbe not in FARBEN and not re.fullmatch(r"#[0-9a-fA-F]{6}", farbe):
