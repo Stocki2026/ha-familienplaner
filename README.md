@@ -260,6 +260,33 @@ strategy:
 Die Karte geht auch einzeln in jedem Dashboard: `type: custom:familienplaner-cockpit` (liest alles aus der
 Einrichtung). Zum Ausprobieren eines Wetters: `szene: {wetter: snowy, sonne: -12, temperatur: -3}`.
 
+## Stil „Zauberwelt“
+
+Der Familienplaner hat zwei Stile, die sich jederzeit umschalten lassen: **Klassisch** und **Zauberwelt**. Umschalten geht über die Auswahl **Stil** der Integration (`select.…_stil`), über den Knopf „✦ Zauberwelt“ im Kopf des Dashboards oder zurück über „Klassisch“ im Zauber-Kopf. Das Dashboard lädt danach neu.
+
+Im Stil Zauberwelt baut das Dashboard diese Ansichten:
+
+- **Heute**: Familienkarte auf Pergament (Fußspuren zeigen, wo jeder ist), die Familienuhr aus Messing (ein Zeiger pro Person, Felder Zuhause, Arbeit, Schule, Training, Unterwegs, Freunde) und der heutige Tag im Zauberbuch.
+- **Zauberbuch**: der Kalender als Lederbuch mit Lesebändchen für Tag, Woche, Monat und Liste, Initialen, Wachssiegeln für den Personenwechsel und Umblättern. Alle Funktionen der normalen Kalenderansicht bleiben erhalten (Termin anlegen und bearbeiten, Wer hat Zeit?, Wand-Modus).
+- **Mein Bereich**: die eigenen Termine als Liste im Buch, dazu die Aufgaben.
+- **Häuser**: jede Person sammelt Edelsteine im Glas ihres Hauses (Wochenpunkte aus dem Familien-Rennen). Schwebende Kerzen schalten Lampen.
+- **Kessel**: das Familienspiel. Erledigte Aufgaben sind Zutaten, ist der Kessel voll, gibt es die Familien-Belohnung.
+
+Cockpit, Essen und Aufgaben mit dem Rennen bleiben in beiden Stilen.
+
+```yaml
+strategy:
+  type: custom:familienplaner
+  # stil: zauber            fest einstellen statt Auswahl „Stil“
+  zauber:
+    kerzen: [light.wohnzimmer, light.kueche]
+    orte: [Zuhause, Arbeit, Schule, Training, Unterwegs, Freunde]
+    haeuser:
+      anna: { name: Sternenlicht }
+```
+
+Die Karten heißen `familienplaner-zauberkopf`, `-zauberuhr`, `-zauberkarte`, `-zauberbuch`, `-haeuser` und `-kessel` und lassen sich auch einzeln verwenden. Die Schriften kommen von Google Fonts; ohne Internet wird eine Serifenschrift genutzt. Die Zauberwelt ist eine eigene Welt ohne Namen, Wappen oder Figuren aus Büchern oder Filmen.
+
 ## Wand-Tablet-Modus
 
 Auf dem Wand-Tablet das Familienplaner-Dashboard **einmal mit `?wand=1` am Ende der Adresse** öffnen

@@ -708,3 +708,10 @@ window.customCards = window.customCards || [];
 if (!window.customCards.some((c) => c.type === "familienplaner-kalender")) {
   window.customCards.push({ type: "familienplaner-kalender", name: "Familienplaner: Kalender", description: "Tag, Woche, Monat, Liste – mit Personenfilter, Bearbeiten und „Wer hat Zeit?“" });
 }
+
+// Für abgeleitete Karten (z. B. das Zauberbuch im Stil „Zauberwelt“)
+FamilienplanerKalender.CSS = KALENDER_CSS;
+FamilienplanerKalender.hilfen = { KT, kesc, p2, tagAnfang, plusTage, gleicherTag, isoLokal, datumIso, hhmm, montag, kalenderwoche, sym };
+window.familienplaner = window.familienplaner || {};
+window.familienplaner.KalenderBasis = FamilienplanerKalender;
+window.dispatchEvent(new Event("familienplaner-kalender-bereit"));
