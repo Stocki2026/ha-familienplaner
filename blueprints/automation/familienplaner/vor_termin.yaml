@@ -1,0 +1,51 @@
+blueprint:
+  name: "Familienplaner: Vor einem Termin (z. B. Wecklicht, Heizung)"
+  description: >-
+    Führt Aktionen eine einstellbare Zeit vor dem nächsten Termin einer Person aus.
+    Beispiele: Wecklicht 45 Minuten vor dem ersten Termin, Bad vorheizen, Kaffeemaschine an.
+    / Runs actions a set time before a person's next event (wake-up light, heating, …).
+  domain: automation
+  source_url: https://github.com/Stocki2026/ha-familienplaner/blob/main/blueprints/automation/familienplaner/vor_termin.yaml
+  input:
+    beginn:
+      name: "Nächster Beginn der Person"
+      description: "Sensor „<Name> nächster Beginn“ des Familienplaners"
+      selector:
+        entity:
+          filter:
+            - integration: familienplaner
+              domain: sensor
+              device_class: timestamp
+    vorlauf:
+      name: Minuten vorher
+      default: 45
+      selector:
+        number: {min: 0, max: 600, step: 5, unit_of_measurement: min, mode: box}
+    nur_ab:
+      name: Nur wenn der Termin frühestens um … beginnt
+      default: "00:00:00"
+      selector: {time: {}}
+    nur_bis:
+      name: … und spätestens um … beginnt (z. B. 10:00 für ein Wecklicht)
+      default: "23:59:00"
+      selector: {time: {}}
+    aktionen:
+      name: Aktionen
+      selector: {action: {}}
+mode: single
+variables:
+  beginn: !input beginn
+  vorlauf: !input vorlauf
+  nur_ab: !input nur_ab
+  nur_bis: !input nur_bis
+trigger:
+  - trigger: template
+    value_template: >-
+      {% set b = states(beginn) | as_datetime(none) %}
+      {{ b is not none and now() >= b - timedelta(minutes=vorlauf | int) and now() < b }}
+condition:
+  - condition: template
+    value_template: >-
+      {% set b = (states(beginn) | as_datetime) | as_local %}
+      {{ nur_ab <= b.strftime('%H:%M:%S') <= nur_bis }}
+action: !input aktionen

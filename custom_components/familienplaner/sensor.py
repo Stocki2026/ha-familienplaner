@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -33,12 +33,14 @@ from .models import Person
 async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities: AddEntitiesCallback) -> None:
     coord: FamilienplanerCoordinator = entry.runtime_data
     entities: list[SensorEntity] = [NaechsterTerminSensor(coord, p) for p in coord.personen]
+    entities += [BeginnSensor(coord, p) for p in coord.personen]
     entities += [
         UebersichtSensor(coord),
         CountdownSensor(coord),
         MuellSensor(coord),
         FerienSensor(coord),
         PinnwandSensor(coord),
+        KonflikteSensor(coord),
     ]
     async_add_entities(entities + erweiterungen(coord, "sensor"))
 
@@ -113,6 +115,8 @@ class UebersichtSensor(FamilienplanerEntity, SensorEntity):
                 "kalender": p.calendar_entity,
                 "liste": p.todo_entity,
                 "sensor": self._id(f"sensor.{p.slug}_naechster_termin"),
+                "beginn": self._id(f"sensor.{p.slug}_naechster_beginn"),
+                "im_termin": self._id(f"binary_sensor.{p.slug}_im_termin"),
                 "user_id": (self.hass.states.get(p.person_entity).attributes.get("user_id")
                             if p.person_entity and self.hass.states.get(p.person_entity) else None),
             }
@@ -121,7 +125,7 @@ class UebersichtSensor(FamilienplanerEntity, SensorEntity):
         formular = {k: self._id(v) for k, v in {
             "person": "select.form_person", "fahrer": "select.form_fahrer", "titel": "text.form_titel",
             "ort": "text.form_ort", "start": "datetime.form_start", "dauer": "number.form_dauer",
-            "ganztag": "switch.form_ganztag", "anlegen": "button.form_anlegen",
+            "ganztag": "switch.form_ganztag", "anlegen": "button.form_anlegen", "satz": "text.form_satz",
         }.items()}
         return {
             "familie": {"name": c.config_entry.title, "farbe": FAMILY_COLOR, "kalender": o.get(CONF_FAMILY_CALENDAR),
@@ -136,7 +140,7 @@ class UebersichtSensor(FamilienplanerEntity, SensorEntity):
             "wetter": o.get(CONF_WEATHER),
             "sensoren": {k: self._id(v) for k, v in {
                 "countdowns": "sensor.countdowns", "muell": "sensor.muell", "ferien": "sensor.ferien",
-                "pinnwand": "sensor.pinnwand",
+                "pinnwand": "sensor.pinnwand", "konflikte": "sensor.konflikte",
             }.items()},
             "formular": formular,
             "ansage": self._id("button.morgen_ansage"),
@@ -215,3 +219,51 @@ class PinnwandSensor(FamilienplanerEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         return {"notizen": self.coordinator.data.pinnwand if self.coordinator.data else []}
+
+
+class BeginnSensor(FamilienplanerEntity, SensorEntity):
+    """Beginn des nächsten Termins als Zeitstempel – für Automationen (Wecklicht, Heizung …)."""
+
+    _attr_icon = "mdi:clock-start"
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+
+    def __init__(self, coord: FamilienplanerCoordinator, person: Person) -> None:
+        super().__init__(coord, f"{person.slug}_naechster_beginn")
+        self._slug = person.slug
+        self._attr_name = f"{person.name} nächster Beginn"
+
+    def _termin(self):
+        daten = self.coordinator.data
+        jetzt = dt_util.now()
+        if not daten:
+            return None
+        kommend = [t for t in daten.alle_kurz
+                   if t.person in (self._slug, "familie") and not t.ganztag and t.start > jetzt]
+        return logic.sortiert(kommend)[0] if kommend else None
+
+    @property
+    def native_value(self):
+        t = self._termin()
+        return t.start if t else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        t = self._termin()
+        return {"titel": t.summary, "ort": t.location, "fahrer": t.fahrer} if t else {}
+
+
+class KonflikteSensor(FamilienplanerEntity, SensorEntity):
+    _attr_icon = "mdi:calendar-alert"
+    _attr_name = "Terminkonflikte"
+
+    def __init__(self, coord: FamilienplanerCoordinator) -> None:
+        super().__init__(coord, "konflikte")
+
+    @property
+    def native_value(self) -> int:
+        return len(self.coordinator.data.konflikte) if self.coordinator.data else 0
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        liste = self.coordinator.data.konflikte if self.coordinator.data else []
+        return {"liste": [{k: v for k, v in x.items() if k != "key"} for x in liste]}

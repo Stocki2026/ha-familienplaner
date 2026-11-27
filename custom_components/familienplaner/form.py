@@ -93,6 +93,28 @@ class TitelText(_Feld, TextEntity):
         self._setzen(value)
 
 
+class SatzText(_Feld, TextEntity):
+    """„Termin in einem Satz“: Text eingeben -> Termin wird sofort angelegt."""
+
+    _attr_native_max = 200
+
+    def __init__(self, coord: FamilienplanerCoordinator) -> None:
+        super().__init__(coord, "satz", "Termin in einem Satz", "mdi:message-text-clock")
+
+    @property
+    def native_value(self) -> str:
+        return self._wert or ""
+
+    async def async_set_value(self, value: str) -> None:
+        from . import async_termin_aus_satz  # noqa: PLC0415 (Zirkelimport vermeiden)
+
+        if not value.strip():
+            self._setzen("")
+            return
+        await async_termin_aus_satz(self.coordinator, value)
+        self._setzen("")
+
+
 class StartDateTime(_Feld, DateTimeEntity):
     def __init__(self, coord: FamilienplanerCoordinator) -> None:
         super().__init__(coord, "start", "Neuer Termin: Wann?", "mdi:calendar-clock")

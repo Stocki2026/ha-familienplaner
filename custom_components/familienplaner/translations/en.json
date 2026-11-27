@@ -88,7 +88,10 @@
           "fahrzeit": "Travel time warning (Waze Travel Time)",
           "alexa": "Alexa devices for announcements (notify …_announce)",
           "alexa_morgen": "Alexa morning briefing",
-          "alexa_uhrzeit": "Time of the morning briefing"
+          "alexa_uhrzeit": "Time of the morning briefing",
+          "konflikt_warnung": "Warn about event conflicts (double bookings, driver busy)",
+          "wochenrueckblick": "Weekly review on Sunday evening",
+          "wochenrueckblick_uhrzeit": "Time of the weekly review"
         }
       }
     },
@@ -270,6 +273,20 @@
     "neue_insel": {
       "name": "New island",
       "description": "Starts a new treasure island: the family walks from the beginning again."
+    },
+    "termin_aus_satz": {
+      "name": "Event from a sentence",
+      "description": "Understands a sentence like “Ben has football on Tuesday at 4, Anna drives” and creates the event.",
+      "fields": {
+        "text": {
+          "name": "Sentence",
+          "description": "What, who, when, and optionally who drives."
+        }
+      }
+    },
+    "wochenrueckblick": {
+      "name": "Weekly review",
+      "description": "Sends everyone their review of this week and a preview of next week now."
     }
   },
   "entity": {

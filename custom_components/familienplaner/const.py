@@ -29,6 +29,9 @@ CONF_ALEXA_TIME = "alexa_uhrzeit"
 CONF_WASTE_TIME = "muell_uhrzeit"
 CONF_WEATHER_HINT = "wetter_hinweis"
 CONF_TRAVEL_TIME = "fahrzeit"
+CONF_CONFLICTS = "konflikt_warnung"
+CONF_WEEKLY = "wochenrueckblick"
+CONF_WEEKLY_TIME = "wochenrueckblick_uhrzeit"
 
 # Felder einer Person
 P_SLUG = "slug"
@@ -53,7 +56,17 @@ DEFAULT_OPTIONS = {
     CONF_WEATHER_HINT: True,
     CONF_TRAVEL_TIME: True,
     CONF_ALEXA: [],
+    CONF_CONFLICTS: True,
+    CONF_WEEKLY: True,
+    CONF_WEEKLY_TIME: "18:00:00",
 }
+
+# Ereignisse auf dem Event-Bus (für eigene Automationen: Licht, Heizung, Alarm …)
+EVENT_SOON = f"{DOMAIN}_termin_bald"
+EVENT_START = f"{DOMAIN}_termin_beginnt"
+EVENT_END = f"{DOMAIN}_termin_endet"
+EVENT_CONFLICT = f"{DOMAIN}_konflikt"
+
 
 FAMILY_COLOR = "#8C7B6B"
 PALETTE = ["#5B8DB8", "#D9849B", "#E39350", "#6FA372", "#A585C1", "#E0B04F", "#4FB3BF", "#C0675B"]

@@ -11,6 +11,12 @@
  *     # optional:
  *     # theme: Familienkalender
  *     # hacs_karten: true   (false = nur eingebaute Karten)
+ *     # tablet:             (Wand-Tablet-Modus, aktiv nach einmaligem Öffnen mit ?wand=1)
+ *     #   leerlauf: 5                      Minuten bis zum Bildschirmschoner
+ *     #   fotos: media-source://media_source/local/fotos   (oder Liste von Bild-URLs)
+ *     #   bewegung: binary_sensor.flur_bewegung
+ *     #   helligkeit: number.wandtablet_screen_brightness  (z. B. Fully Kiosk)
+ *     #   nacht_von: "22:00"  nacht_bis: "06:00"
  */
 
 const VERSION = "0.1.0";
@@ -73,6 +79,7 @@ function formularKarte(u, titel = "Neuer Termin") {
     icon: "mdi:calendar-plus",
     state_color: true,
     entities: [
+      ...(f.satz ? [{ entity: f.satz, name: "Schnell: alles in einem Satz" }, { type: "section", label: "oder einzeln" }] : []),
       { entity: f.person, name: "Für wen?" },
       { entity: f.titel, name: "Was?" },
       { entity: f.start, name: "Wann?" },
@@ -180,7 +187,7 @@ class FamilienplanerStrategy extends HTMLElement {
     if (!id) {
       return {
         title: "Familienplaner",
-        views: [{ title: "Familienplaner", cards: [{ type: "markdown", content: "## Familienplaner\nDie Integration ist noch nicht eingerichtet. *Einstellungen → Geräte & Dienste → Integration hinzufügen → Familienplaner*." }] }],
+        views: [{ title: "Familienplaner", cards: [{ type: "markdown", content: "## Familienplaner\nDie Integration ist noch nicht eingerichtet oder konnte nicht starten.\n\n- Einrichten: *Einstellungen → Geräte & Dienste → Integration hinzufügen → Familienplaner*\n- Fehler ansehen: *Einstellungen → System → Protokolle* (nach „familienplaner“ suchen)\n\n*Not set up yet or failed to start – see Settings → System → Logs.*" }] }],
       };
     }
     const u = hass.states[id].attributes;
@@ -197,7 +204,7 @@ class FamilienplanerStrategy extends HTMLElement {
     const s = u.sensoren || {};
 
     // ----------------------------------------------------------- Woche (Wand)
-    const kopf = schoen ? [{ type: "custom:familienplaner-kopf", wetter: u.wetter, muell: s.muell, ferien: s.ferien }] : [markdownKopf];
+    const kopf = schoen ? [{ type: "custom:familienplaner-kopf", wetter: u.wetter, muell: s.muell, ferien: s.ferien, konflikte: s.konflikte }] : [markdownKopf];
     if (u.wetter) kopf.push({ type: "weather-forecast", entity: u.wetter, show_current: !schoen, show_forecast: true, forecast_type: "daily" });
     const personenKarte = (liste) => schoen
       ? { type: "custom:familienplaner-personen", personen: liste.filter((p) => p.sensor).map((p) => ({ sensor: p.sensor, name: p.name, farbe: p.farbe, person: p.person })) }
@@ -223,6 +230,7 @@ class FamilienplanerStrategy extends HTMLElement {
             { type: "grid", columns: 2, square: false, cards: kopf },
             personenKarte(personen),
             wochenKarte(u, hacs),
+            { type: "custom:familienplaner-wand", personen: personen.filter((p) => p.sensor).map((p) => ({ sensor: p.sensor, name: p.name, farbe: p.farbe })), ...(config.tablet || {}) },
             { type: "grid", columns: 3, square: false, cards: [...extras, { type: "vertical-stack", cards: [formularKarte(u), ...kacheln] }] },
           ],
         },

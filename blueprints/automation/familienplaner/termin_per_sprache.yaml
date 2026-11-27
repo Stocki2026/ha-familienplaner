@@ -1,0 +1,28 @@
+blueprint:
+  name: "Familienplaner: Termin per Sprache (Assist)"
+  description: >-
+    Sag zu Assist (Handy-App, Voice-Gerät): „Termin Ben hat Dienstag um 4 Fußball, Anna fährt“
+    oder „Trag ein Zahnarzt morgen um 9“. Der Familienplaner versteht Person, Tag, Uhrzeit und Fahrer.
+    / Say “Appointment Ben football tomorrow at 3pm” to Assist.
+  domain: automation
+  source_url: https://github.com/Stocki2026/ha-familienplaner/blob/main/blueprints/automation/familienplaner/termin_per_sprache.yaml
+  input:
+    saetze:
+      name: Satzanfänge ({text} = der Rest des Satzes)
+      default:
+        - "Termin {text}"
+        - "Neuer Termin {text}"
+        - "Trag ein {text}"
+        - "Trage ein {text}"
+        - "Appointment {text}"
+      selector: {text: {multiple: true}}
+mode: queued
+trigger:
+  - trigger: conversation
+    command: !input saetze
+action:
+  - action: familienplaner.termin_aus_satz
+    data:
+      text: "{{ trigger.slots.text }}"
+    response_variable: ergebnis
+  - set_conversation_response: "{{ ergebnis.antwort }}"
