@@ -16,7 +16,7 @@
       heute_satz: " und heute schon **{{ f.heute }} {{ 'Aufgabe' if f.heute == 1 else 'Aufgaben' }}** geschafft",
       serie_satz: " 🔥 {{ f.serie }} Tage in Folge!",
       gast: "Hake Aufgaben ab und sammle Punkte fürs Familien-Rennen.",
-      tipp: "Tipp: Schreib „+20“ in den Titel einer Aufgabe, dann bringt sie 20 Punkte. Tippe auf dein Fahrzeug, um es umzubauen.",
+      tipp: "Tipp: Schreib „+20“ in den Titel einer Aufgabe, dann bringt sie 20 Punkte. Ein Emoji am Anfang des Titels wird zum großen Bild. Tippe auf dein Fahrzeug, um es umzubauen.",
       haushalt: "Haushalt heute",
       nicht_verteilt: "noch nicht verteilt",
       punkte: "Punkte",
@@ -37,7 +37,7 @@
       heute_satz: " and already finished **{{ f.heute }} {{ 'task' if f.heute == 1 else 'tasks' }}** today",
       serie_satz: " 🔥 {{ f.serie }} days in a row!",
       gast: "Check off tasks and collect points for the family race.",
-      tipp: "Tip: write “+20” in a task title and it is worth 20 points. Tap your vehicle to customise it.",
+      tipp: "Tip: write “+20” in a task title and it is worth 20 points. An emoji at the start of the title becomes the big picture. Tap your vehicle to customise it.",
       haushalt: "Chores today",
       nicht_verteilt: "not assigned yet",
       punkte: "points",
@@ -95,7 +95,12 @@
       ],
     });
 
-    // --- Aufgaben pro Person --------------------------------------------------------
+    // --- Schatzkarte: die ganze Familie läuft gemeinsam --------------------------------
+    if (a.schatzkarte) {
+      sections.push({ type: "grid", column_span: 4, cards: [{ type: "custom:schatzkarte-card", entity: rennen }] });
+    }
+
+    // --- Aufgaben pro Person (große Bilder, auch ohne Lesen verständlich) --------------------------------------------------------
     for (const f of fahrer) {
       if (!f.liste) continue;
       const punkte = id(`punkte_${f.slug}`);
@@ -108,7 +113,7 @@
             icon: "mdi:account",
             badges: punkte ? [{ type: "entity", entity: punkte, color: f.farbe_hex, show_icon: true }] : [],
           },
-          { type: "todo-list", entity: f.liste, hide_completed: false },
+          { type: "custom:aufgaben-bilder-card", entity: f.liste, titel: "" },
         ],
       });
     }
@@ -177,7 +182,7 @@
       });
     }
     const regeln = ["punkte_pro_aufgabe", "rennen_ziel", "serien_bonus", "sieger_bonus", "familienziel",
-      "familienziel_text", "rennen_neu", "familienziel_einloesen"].map(id).filter(Boolean);
+      "familienziel_text", "rennen_neu", "familienziel_einloesen", "insel_neu"].map(id).filter(Boolean);
     const rotation = ["rotation_aktiv", "rotation_uhrzeit", "dienste_verteilen"].map(id).filter(Boolean);
     if (regeln.length) elternKarten.push({ type: "entities", title: t.regeln, grid_options: { columns: 6 }, entities: regeln });
     if (rotation.length) elternKarten.push({ type: "entities", title: t.rotation, grid_options: { columns: 6 }, entities: rotation });

@@ -110,7 +110,7 @@ async def test_punkte_fuers_abhaken(hass: HomeAssistant, planer):
     assert hass.states.get(_eid(hass, "sensor.punkte_ben")).attributes["friendly_name"] == "Familienplaner Points Ben"
     ids = rennen.attributes["entitaeten"]
     for key in ("rennen", "haushalt", "punkte_ben", "punkte_pro_aufgabe", "rennen_ziel", "familienziel_text",
-                "rotation_aktiv", "rotation_uhrzeit", "rennen_neu", "dienste_verteilen", "familienziel_einloesen"):
+                "rotation_aktiv", "rotation_uhrzeit", "rennen_neu", "dienste_verteilen", "familienziel_einloesen", "insel_neu"):
         assert ids[key] and hass.states.get(ids[key]), key
 
 
@@ -194,6 +194,51 @@ async def test_rotation_und_sieg(hass: HomeAssistant, planer, freezer: FrozenDat
     assert m.stand("ben")["serie"] == 0 and m.stand("ben")["heute"] == 0
 
 
+async def test_schatzkarte(hass: HomeAssistant, planer):
+    """Die ganze Familie läuft gemeinsam: Stationen bringen Familien-Belohnungen in die Familienliste."""
+    m = planer["m"]
+    sk = hass.states.get(_eid(hass, "sensor.rennen")).attributes["schatzkarte"]
+    assert sk["insel"] == 1 and sk["punkte"] == 0 and sk["stationen"][0]["name"] == "Shell Beach"
+    assert sk["naechste"] == "Shell Beach" and sk["fehlt"] == 150 and sk["ziel"] == 1300
+
+    # Anna und Ben sammeln gemeinsam
+    await m.async_buchen("anna", 100, 1)
+    await m.async_buchen("ben", 280, 1)
+    await hass.async_block_till_done()
+    sk = hass.states.get(_eid(hass, "sensor.rennen")).attributes["schatzkarte"]
+    assert sk["punkte"] == 380 and [s["erreicht"] for s in sk["stationen"]][:3] == [True, True, False]
+    assert sk["naechste"] == "Fire Mountain" and sk["fehlt"] == 220
+    items = await hass.services.async_call("todo", "get_items", {"entity_id": "todo.familie"}, blocking=True,
+                                           return_response=True)
+    titel = [i["summary"] for i in items["todo.familie"]["items"]]
+    assert titel == ["🎁 🐚 Shell Beach: Ice cream together 🍦", "🎁 🌴 Palm Oasis: Game night 🎲"]
+    # Abhaken der Familien-Belohnung bringt keine Punkte
+    await _todo(hass, "update_item", {"entity_id": "todo.familie", "item": titel[0], "status": "completed"},
+                user=planer["anna"])
+    assert m.stand("anna")["rennen"] == 100 and m.daten["insel"]["punkte"] == 380
+
+    # Eigene Stationen (nur Eltern/Admins); schon überschrittene gelten als erreicht, ohne neue Aufgabe
+    with pytest.raises(Unauthorized):
+        await hass.services.async_call(DOMAIN, "schatzkarte_festlegen", {"stationen": [
+            {"name": "Zoo", "belohnung": "Zoo", "punkte": 10}]}, blocking=True, context=Context(user_id=planer["ben"].id))
+    await hass.services.async_call(DOMAIN, "schatzkarte_festlegen", {"stationen": [
+        {"name": "Schwimmbad", "belohnung": "Schwimmen", "punkte": 500, "emoji": "🏊"},
+        {"name": "Spielplatz", "belohnung": "Spielplatz", "punkte": 200},
+    ]}, blocking=True, context=Context(user_id=planer["anna"].id))
+    assert [s["name"] for s in m.daten["stationen"]] == ["Spielplatz", "Schwimmbad"] and m.daten["insel"]["erreicht"] == 1
+    await m.async_buchen("ben", 120, 0)
+    items = await hass.services.async_call("todo", "get_items", {"entity_id": "todo.familie"}, blocking=True,
+                                           return_response=True)
+    assert items["todo.familie"]["items"][-1]["summary"] == "🎁 🏊 Schwimmbad: Schwimmen"
+    assert len(items["todo.familie"]["items"]) == 3
+    sk = hass.states.get(_eid(hass, "sensor.rennen")).attributes["schatzkarte"]
+    assert sk["naechste"] is None and sk["fehlt"] == 0
+
+    # Neue Insel per Taste: von vorne, Inselnummer steigt
+    await hass.services.async_call("button", "press", {"entity_id": _eid(hass, "button.insel_neu")}, blocking=True)
+    assert m.daten["insel"] == {"nummer": 2, "punkte": 0, "erreicht": 0}
+
+
 async def test_punkte_bleiben_nach_neustart(hass: HomeAssistant, planer):
     m = planer["m"]
     await m.async_buchen("ben", 42, 1)
@@ -222,3 +267,4 @@ async def test_deutsch(hass: HomeAssistant, enable_custom_integrations, tmp_path
     assert m.einstellungen["familienziel_text"] == "Pizza- und Filmabend 🍕"
     assert aufgaben._t(hass, "belohnung_aufgabe", name="Carla", belohnung="Kino") == "🎁 Carla löst ein: Kino"
     assert aufgaben.level(260, "en")[1] == "Kart talent"
+    assert m.daten["stationen"][0]["name"] == "Muschelstrand"

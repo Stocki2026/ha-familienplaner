@@ -158,3 +158,13 @@ dienste_festlegen:
       example: '[{"titel": "🍽️ Spülmaschine ausräumen", "punkte": 15, "tage": [0,1,2,3,4,5,6]}]'
       selector:
         object:
+
+schatzkarte_festlegen:
+  fields:
+    stationen:
+      required: true
+      example: '[{"emoji": "🐚", "name": "Shell Beach", "belohnung": "Ice cream together", "punkte": 150}]'
+      selector:
+        object:
+
+neue_insel:

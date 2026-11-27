@@ -256,6 +256,20 @@
           "description": "Liste mit titel, punkte, tage (0 = Montag) und optional versatz."
         }
       }
+    },
+    "schatzkarte_festlegen": {
+      "name": "Schatzkarte festlegen",
+      "description": "Ersetzt die Stationen der Familien-Schatzkarte. Jede Station erreicht die Familie mit den Punkten, die alle gemeinsam sammeln.",
+      "fields": {
+        "stationen": {
+          "name": "Stationen",
+          "description": "Liste mit name, belohnung (Familien-Belohnung), punkte (nötige Familienpunkte) und optional emoji."
+        }
+      }
+    },
+    "neue_insel": {
+      "name": "Neue Insel",
+      "description": "Startet eine neue Schatzinsel: Die Familie läuft wieder von vorne."
     }
   },
   "entity": {
@@ -311,6 +325,9 @@
       },
       "familienziel_einloesen": {
         "name": "Familienziel einlösen"
+      },
+      "insel_neu": {
+        "name": "Neue Schatzinsel"
       }
     }
   }
