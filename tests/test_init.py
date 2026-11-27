@@ -219,3 +219,12 @@ async def test_cockpit_karte_wird_geladen(hass: HomeAssistant, enable_custom_int
     assert await async_setup_component(hass, DOMAIN, {})
     urls = list(hass.data[DATA_EXTRA_MODULE_URL].urls)
     assert any("/familienplaner_static/familienplaner-cockpit.js?v=" in u for u in urls), urls
+
+
+async def test_stil_umschaltbar(hass: HomeAssistant, basis):
+    u = _sensor(hass, "ubersicht")
+    stil = u.attributes["stil"]
+    assert stil and hass.states.get(stil).state == "klassisch"
+    assert hass.states.get(stil).attributes["options"] == ["klassisch", "zauber"]
+    await hass.services.async_call("select", "select_option", {"entity_id": stil, "option": "zauber"}, blocking=True)
+    assert hass.states.get(stil).state == "zauber"

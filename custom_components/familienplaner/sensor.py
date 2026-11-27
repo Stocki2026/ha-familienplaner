@@ -144,6 +144,7 @@ class UebersichtSensor(FamilienplanerEntity, SensorEntity):
             }.items()},
             "formular": formular,
             "ansage": self._id("button.morgen_ansage"),
+            "stil": self._id("select.stil"),
         }
 
 

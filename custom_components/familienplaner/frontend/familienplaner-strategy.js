@@ -20,6 +20,11 @@
  *     # cockpit:            (Ansicht „Cockpit“: lebendiger Himmel + 24-Stunden-Tagesring)
  *     #   zuerst: true                     Cockpit als erste Ansicht (Startseite)
  *     #   polarlicht: false  leistung: sparsam   (false statt Optionen blendet die Ansicht aus)
+ *     # stil: zauber        (fester Stil; sonst gilt die Auswahl „Stil“ der Integration: klassisch | zauber)
+ *     # zauber:             (Optionen für den Stil Zauberwelt)
+ *     #   kerzen: [light.wohnzimmer, light.kueche]   schwebende Kerzen in „Häuser“ schalten Lampen
+ *     #   orte: [Zuhause, Arbeit, Schule, Training, Unterwegs, Freunde]   Felder der Familienuhr
+ *     #   haeuser: { anna: { name: Sternenlicht } }  eigene Hausnamen
  */
 
 const VERSION = "0.1.0";
@@ -202,6 +207,75 @@ function agendaKarte(hacs, entities, titel, tage = 7) {
   return { type: "calendar", title: titel, initial_view: "listWeek", entities: entities.map((e) => e.entity) };
 }
 
+// ------------------------------------------------------------ Stil Zauberwelt
+const ZAUBER_HINTERGRUND =
+  "radial-gradient(ellipse at 50% 0%, rgba(255,200,120,.18), transparent 60%), " +
+  "repeating-linear-gradient(90deg, rgba(0,0,0,.18) 0 2px, transparent 2px 9px, rgba(255,255,255,.03) 9px 11px, transparent 11px 23px), " +
+  "linear-gradient(180deg, #3a2414, #24160c 70%, #1a0f08)";
+
+function rennenSensor(hass) {
+  return Object.keys(hass.states).find((id) => {
+    const a = hass.states[id].attributes;
+    return id.startsWith("sensor.") && Array.isArray(a.fahrer) && a.entitaeten && Array.isArray(a.dienste);
+  });
+}
+
+function zauberAnsichten(u, hass, config, opt, teile) {
+  const personen = u.personen || [];
+  const mitSensor = personen.filter((p) => p.person || p.sensor).map((p) => ({ slug: p.slug, name: p.name, farbe: p.farbe, person: p.person, sensor: p.sensor }));
+  const basis = { type: "panel", background: ZAUBER_HINTERGRUND };
+  const buch = (ansicht, extra = {}) => ({ type: "custom:familienplaner-zauberbuch", ansicht, kalender: kalenderListe(u, extra.person), ...(extra.person ? { folge_person: false } : {}) });
+  const heute = {
+    ...basis,
+    title: "Heute",
+    path: "woche",
+    icon: "mdi:auto-fix",
+    cards: [{
+      type: "vertical-stack",
+      cards: [
+        { type: "custom:familienplaner-zauberkopf", name: u.familie.name, wetter: u.wetter, stil: u.stil },
+        { type: "grid", columns: 2, square: false, cards: [
+          { type: "custom:familienplaner-zauberkarte", personen: mitSensor, ...(opt.orte ? { orte: opt.orte } : {}) },
+          { type: "custom:familienplaner-zauberuhr", personen: mitSensor, ...(opt.orte ? { orte: opt.orte } : {}) },
+        ] },
+        buch("tag"),
+        { type: "grid", columns: 3, square: false, cards: [...teile.extras, { type: "vertical-stack", cards: [u.formular && u.formular.satz ? { type: "custom:familienplaner-schnell" } : formularKarte(u), ...teile.kacheln] }] },
+      ],
+    }],
+  };
+  const zauberbuch = {
+    ...basis,
+    title: "Zauberbuch",
+    path: "zauberbuch",
+    icon: "mdi:book-open-page-variant",
+    cards: [{
+      type: "vertical-stack",
+      cards: [
+        { type: "custom:familienplaner-zauberkopf", name: u.familie.name, wetter: u.wetter, stil: u.stil },
+        buch("woche"),
+        { type: "custom:familienplaner-wand", personen: personen.filter((p) => p.sensor).map((p) => ({ sensor: p.sensor, name: p.name, farbe: p.farbe })), ...(config.tablet || {}) },
+      ],
+    }],
+  };
+  const sections = personen.map((p) => {
+    const karten = [{ type: "heading", heading: p.name, icon: "mdi:account" }, buch("liste", { person: p })];
+    if (p.liste) karten.push({ type: "todo-list", entity: p.liste });
+    const sec = { type: "grid", cards: karten };
+    if (p.user_id) sec.visibility = [{ condition: "user", users: [p.user_id] }];
+    return sec;
+  });
+  const gemeinsam = [u.familie.liste && { type: "todo-list", entity: u.familie.liste, title: "Familie" }, u.listen && u.listen.einkauf && { type: "todo-list", entity: u.listen.einkauf, title: "Einkauf" }].filter(Boolean);
+  if (gemeinsam.length) sections.push({ type: "grid", cards: [{ type: "heading", heading: "Gemeinsam", icon: "mdi:home-heart" }, ...gemeinsam] });
+  const mein = { title: "Mein Bereich", path: "mein-bereich", icon: "mdi:cellphone-text", type: "sections", max_columns: 3, background: ZAUBER_HINTERGRUND, sections };
+  const views = [heute, zauberbuch, mein];
+  const rennen = rennenSensor(hass);
+  if (rennen) {
+    views.push({ ...basis, title: "Häuser", path: "haeuser", icon: "mdi:shield-crown-outline", cards: [{ type: "custom:familienplaner-haeuser", entity: rennen, kerzen: opt.kerzen || [], ...(opt.haeuser ? { haeuser: opt.haeuser } : {}) }] });
+    views.push({ ...basis, title: "Kessel", path: "kessel", icon: "mdi:pot-mix-outline", cards: [{ type: "custom:familienplaner-kessel", entity: rennen }] });
+  }
+  return views;
+}
+
 class FamilienplanerStrategy extends HTMLElement {
   static async generate(config, hass) {
     const id = findeUebersicht(hass);
@@ -225,9 +299,12 @@ class FamilienplanerStrategy extends HTMLElement {
     const personen = u.personen || [];
     const famKal = u.familie.kalender ? [{ entity: u.familie.kalender, color: u.familie.farbe }] : [];
     const s = u.sensoren || {};
+    const stil = config.stil || (u.stil && hass.states[u.stil] && hass.states[u.stil].state) || "klassisch";
+    const zauberOpt = config.zauber && typeof config.zauber === "object" ? config.zauber : {};
+    const zauber = stil === "zauber" && (await karteVerfuegbar("familienplaner-zauberuhr")) && (await karteVerfuegbar("familienplaner-zauberbuch", 3000));
 
     // ----------------------------------------------------------- Woche (Wand)
-    const kopf = schoen ? [{ type: "custom:familienplaner-kopf", wetter: u.wetter, muell: s.muell, ferien: s.ferien, konflikte: s.konflikte }] : [markdownKopf];
+    const kopf = schoen ? [{ type: "custom:familienplaner-kopf", wetter: u.wetter, muell: s.muell, ferien: s.ferien, konflikte: s.konflikte, stil: u.stil }] : [markdownKopf];
     if (u.wetter) kopf.push({ type: "weather-forecast", entity: u.wetter, show_current: !schoen, show_forecast: true, forecast_type: "daily" });
     const personenKarte = (liste, auswahl = false) => schoen
       ? { type: "custom:familienplaner-personen", auswahl, personen: liste.filter((p) => p.sensor).map((p) => ({ slug: p.slug, sensor: p.sensor, name: p.name, farbe: p.farbe, person: p.person })) }
@@ -313,7 +390,7 @@ class FamilienplanerStrategy extends HTMLElement {
       })),
     };
 
-    const views = [woche, mein, familie];
+    const views = zauber ? zauberAnsichten(u, hass, config, zauberOpt, { personenKarte, extras, kacheln }) : [woche, mein, familie];
 
     // ------------------------------------------------------------------ Cockpit
     if (config.cockpit !== false && (await karteVerfuegbar("familienplaner-cockpit"))) {
@@ -353,7 +430,7 @@ class FamilienplanerStrategy extends HTMLElement {
     }
 
     // -------------------------------------------------------------------- Monat
-    views.push({
+    if (!zauber) views.push({
       title: "Monat",
       path: "monat",
       icon: "mdi:calendar-month",

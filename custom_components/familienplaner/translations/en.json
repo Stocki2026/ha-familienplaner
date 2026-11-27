@@ -408,6 +408,15 @@
       "insel_neu": {
         "name": "New treasure island"
       }
+    },
+    "select": {
+      "stil": {
+        "name": "Style",
+        "state": {
+          "klassisch": "Classic",
+          "zauber": "Magic world"
+        }
+      }
     }
   }
 }

@@ -408,6 +408,15 @@
       "insel_neu": {
         "name": "Neue Schatzinsel"
       }
+    },
+    "select": {
+      "stil": {
+        "name": "Stil",
+        "state": {
+          "klassisch": "Klassisch",
+          "zauber": "Zauberwelt"
+        }
+      }
     }
   }
 }

@@ -219,6 +219,7 @@ class FamilienplanerKopf extends FpBasis {
       chips.unshift(`<span class="chip warnung" data-id="${esc(this._config.konflikte)}"><ha-icon icon="mdi:calendar-alert"></ha-icon>${esc(text)}</span>`);
     }
 
+    if (this._config.stil && this._hass.states[this._config.stil]) chips.push(`<span class="chip stil" data-stil="zauber">✦ ${(this._hass.language || "de").startsWith("de") ? "Zauberwelt" : "Magic world"}</span>`);
     this.shadowRoot.innerHTML = `
       <style>${BASIS_CSS}
         ha-card { padding: 22px 26px; background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 14%, var(--card-background-color, #fff)), var(--card-background-color, #fff) 70%); }
@@ -235,6 +236,7 @@ class FamilienplanerKopf extends FpBasis {
         .chip.warnung { background: color-mix(in srgb, var(--error-color, #DB4437) 18%, transparent); color: var(--error-color, #B3261E); }
         .chip.ferien { background: color-mix(in srgb, #4FB3BF 20%, transparent); }
         .chip ha-icon { --mdc-icon-size: 18px; }
+        .chip.stil { background: linear-gradient(135deg, #3a2414, #6b3a1c); color: #f3d27a; border: 1px solid #c9a24a; }
       </style>
       <ha-card>
         <div class="zeile">
@@ -244,6 +246,10 @@ class FamilienplanerKopf extends FpBasis {
         ${chips.length ? `<div class="chips">${chips.join("")}</div>` : ""}
       </ha-card>`;
     this.shadowRoot.querySelectorAll("[data-id]").forEach((el) => el.addEventListener("click", () => mehrInfo(this, el.dataset.id)));
+    this.shadowRoot.querySelectorAll("[data-stil]").forEach((el) => el.addEventListener("click", async () => {
+      await this._hass.callService("select", "select_option", { entity_id: this._config.stil, option: el.dataset.stil });
+      setTimeout(() => location.reload(), 300);
+    }));
   }
 }
 
