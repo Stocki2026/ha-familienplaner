@@ -1,0 +1,179 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Familienplaner einrichten",
+        "description": "Wähle den gemeinsamen Familienkalender und die Familienlisten. Personen fügst du danach unter „Konfigurieren“ hinzu.",
+        "data": {
+          "titel": "Name der Familie",
+          "familien_kalender": "Familienkalender",
+          "familien_liste": "Familien-Aufgabenliste",
+          "einkaufsliste": "Einkaufsliste",
+          "wetter": "Wetter"
+        }
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Der Familienplaner ist schon eingerichtet."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Familienplaner",
+        "menu_options": {
+          "person_neu": "Person hinzufügen",
+          "person_bearbeiten_waehlen": "Person bearbeiten",
+          "person_entfernen": "Person entfernen",
+          "kalender": "Zusatzkalender & Pinnwand",
+          "einstellungen": "Erinnerungen & Alexa"
+        }
+      },
+      "person_neu": {
+        "title": "Person hinzufügen",
+        "data": {
+          "name": "Name",
+          "farbe": "Farbe",
+          "person_entity": "Person in Home Assistant (für zu Hause/unterwegs und Handy-Ansicht)",
+          "calendar_entity": "Eigener Kalender",
+          "todo_entity": "Eigene Aufgabenliste",
+          "notify_service": "Handy-Benachrichtigung (notify.mobile_app_…)",
+          "rotation": "Macht bei der Haushalts-Rotation mit"
+        }
+      },
+      "person_bearbeiten_waehlen": {
+        "title": "Person bearbeiten",
+        "data": {
+          "slug": "Person"
+        }
+      },
+      "person_bearbeiten": {
+        "title": "{name} bearbeiten",
+        "data": {
+          "name": "Name",
+          "farbe": "Farbe",
+          "person_entity": "Person in Home Assistant",
+          "calendar_entity": "Eigener Kalender",
+          "todo_entity": "Eigene Aufgabenliste",
+          "notify_service": "Handy-Benachrichtigung",
+          "rotation": "Macht bei der Haushalts-Rotation mit"
+        }
+      },
+      "person_entfernen": {
+        "title": "Person entfernen",
+        "data": {
+          "personen": "Personen"
+        }
+      },
+      "kalender": {
+        "title": "Zusatzkalender",
+        "description": "Alles optional. Lokale Kalender legst du über die Integration „Lokaler Kalender“ an, Müll und Ferien per „Remote-Kalender“ (ICS-Link).",
+        "data": {
+          "besondere_tage": "Besondere Tage (Geburtstage, Urlaub)",
+          "feiertage": "Feiertage",
+          "muellabfuhr": "Müllabfuhr",
+          "schulferien": "Schulferien",
+          "essensplan": "Essensplan",
+          "pinnwand": "Pinnwand (Aufgabenliste)"
+        }
+      },
+      "einstellungen": {
+        "title": "Erinnerungen & Alexa",
+        "data": {
+          "erinnerung_minuten": "Erinnerung vor Terminen",
+          "morgen_uhrzeit": "Tagesübersicht morgens",
+          "abend_uhrzeit": "Vorschau auf morgen",
+          "muell_uhrzeit": "Müll-Erinnerung am Vorabend",
+          "wetter_hinweis": "Wetter-Hinweis vor Terminen mit Ort",
+          "fahrzeit": "Fahrzeit-Warnung (Waze Travel Time)",
+          "alexa": "Alexa-Geräte für Ansagen (notify …_announce)",
+          "alexa_morgen": "Alexa-Morgen-Ansage",
+          "alexa_uhrzeit": "Uhrzeit der Morgen-Ansage"
+        }
+      }
+    },
+    "error": {
+      "name_vergeben": "Diesen Namen gibt es schon."
+    }
+  },
+  "services": {
+    "termin_anlegen": {
+      "name": "Termin anlegen",
+      "description": "Legt einen Termin im Kalender einer Person oder der Familie an.",
+      "fields": {
+        "person": {
+          "name": "Für wen",
+          "description": "Kürzel der Person (z. B. anna) oder familie."
+        },
+        "titel": {
+          "name": "Was",
+          "description": "Titel des Termins."
+        },
+        "start": {
+          "name": "Wann",
+          "description": "Beginn."
+        },
+        "dauer": {
+          "name": "Dauer",
+          "description": "Dauer in Minuten."
+        },
+        "ganztag": {
+          "name": "Ganztägig",
+          "description": "Ganztägiger Termin."
+        },
+        "ort": {
+          "name": "Wo",
+          "description": "Ort (für Wetter- und Fahrzeit-Hinweis)."
+        },
+        "fahrer": {
+          "name": "Fahrer",
+          "description": "Wer fährt / holt ab (Kürzel)."
+        },
+        "benachrichtigen": {
+          "name": "Benachrichtigen",
+          "description": "Push an die Person schicken."
+        }
+      }
+    },
+    "gericht_planen": {
+      "name": "Gericht planen",
+      "description": "Trägt ein Gericht in den Essensplan ein und setzt die Zutaten auf die Einkaufsliste.",
+      "fields": {
+        "tag": {
+          "name": "Tag",
+          "description": "An welchem Tag."
+        },
+        "gericht": {
+          "name": "Gericht",
+          "description": "Was es gibt."
+        },
+        "zutaten": {
+          "name": "Zutaten",
+          "description": "Eine pro Zeile oder mit Komma getrennt."
+        }
+      }
+    },
+    "benachrichtigen": {
+      "name": "Benachrichtigen",
+      "description": "Schickt eine Push-Nachricht an eine Person oder an alle.",
+      "fields": {
+        "person": {
+          "name": "An",
+          "description": "Kürzel der Person oder familie."
+        },
+        "titel": {
+          "name": "Titel",
+          "description": "Überschrift."
+        },
+        "nachricht": {
+          "name": "Nachricht",
+          "description": "Text."
+        }
+      }
+    },
+    "morgen_ansage": {
+      "name": "Morgen-Ansage",
+      "description": "Spielt die Tagesansage auf den Alexa-Geräten ab und gibt den Text zurück."
+    }
+  }
+}

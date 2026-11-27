@@ -1,0 +1,274 @@
+"""Reine Logik (ohne Home-Assistant-Abhängigkeiten), gut testbar."""
+
+from __future__ import annotations
+
+from datetime import date, datetime, timedelta
+import re
+from typing import Any, Iterable
+
+from .models import Termin
+
+WOCHENTAGE = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
+WOCHENTAGE_KURZ = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
+MONATE = [
+    "Januar", "Februar", "März", "April", "Mai", "Juni",
+    "Juli", "August", "September", "Oktober", "November", "Dezember",
+]
+
+WETTER_DE = {
+    "clear-night": "klar",
+    "cloudy": "bewölkt",
+    "exceptional": "Unwetter",
+    "fog": "neblig",
+    "hail": "Hagel",
+    "lightning": "Gewitter",
+    "lightning-rainy": "Gewitter mit Regen",
+    "partlycloudy": "teils bewölkt",
+    "pouring": "starker Regen",
+    "rainy": "Regen",
+    "snowy": "Schnee",
+    "snowy-rainy": "Schneeregen",
+    "sunny": "sonnig",
+    "windy": "windig",
+    "windy-variant": "windig und bewölkt",
+}
+NASS = {"rainy", "pouring", "snowy", "snowy-rainy", "lightning", "lightning-rainy", "hail"}
+
+
+def _parse(value: Any, tz) -> datetime | date:
+    if isinstance(value, (datetime, date)):
+        return value
+    text = str(value)
+    if "T" in text or " " in text.strip():
+        dt = datetime.fromisoformat(text.replace(" ", "T"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=tz)
+        return dt
+    return date.fromisoformat(text[:10])
+
+
+def parse_events(antwort: dict[str, Any], entity_id: str, person: str, tz) -> list[Termin]:
+    """Antwort von calendar.get_events -> Termine eines Kalenders."""
+    roh = (antwort or {}).get(entity_id, {}).get("events", []) or []
+    termine = []
+    for e in roh:
+        try:
+            termine.append(
+                Termin(
+                    summary=str(e.get("summary", "")),
+                    start=_parse(e["start"], tz),
+                    end=_parse(e["end"], tz),
+                    location=str(e.get("location") or ""),
+                    description=str(e.get("description") or ""),
+                    uid=e.get("uid"),
+                    kalender=entity_id,
+                    person=person,
+                )
+            )
+        except (KeyError, ValueError):
+            continue
+    return termine
+
+
+def _sort_key(t: Termin) -> datetime:
+    if isinstance(t.start, datetime):
+        return t.start
+    return datetime.combine(t.start, datetime.min.time()).replace(tzinfo=None).astimezone()
+
+
+def sortiert(termine: Iterable[Termin]) -> list[Termin]:
+    return sorted(termine, key=lambda t: (_sort_key(t).timestamp(), t.summary))
+
+
+def naechster_termin(termine: Iterable[Termin], jetzt: datetime) -> Termin | None:
+    """Laufender oder nächster Termin mit Uhrzeit."""
+    for t in sortiert(x for x in termine if not x.ganztag):
+        if t.end > jetzt:  # type: ignore[operator]
+            return t
+    return None
+
+
+def wann_text(t: Termin | None, jetzt: datetime) -> str:
+    """'läuft gerade', 'in 45 Min', 'heute 18:30', 'morgen 08:00', 'Fr 14:00'."""
+    if t is None:
+        return "die nächsten Tage frei"
+    if t.ganztag:
+        tage = (t.start - jetzt.date()).days  # type: ignore[operator]
+        return "heute" if tage <= 0 else ("morgen" if tage == 1 else f"in {tage} Tagen")
+    start = t.start.astimezone(jetzt.tzinfo)  # type: ignore[union-attr]
+    ende = t.end.astimezone(jetzt.tzinfo)  # type: ignore[union-attr]
+    if start <= jetzt < ende:
+        return "läuft gerade"
+    minuten = int(-(-(start - jetzt).total_seconds() // 60))
+    if minuten < 60:
+        return f"in {minuten} Min"
+    if start.date() == jetzt.date():
+        return f"heute {start:%H:%M}"
+    if start.date() == (jetzt + timedelta(days=1)).date():
+        return f"morgen {start:%H:%M}"
+    return f"{WOCHENTAGE_KURZ[start.weekday()]} {start:%H:%M}"
+
+
+def zeit_text(t: Termin, tz) -> str:
+    return "ganztägig" if t.ganztag else t.start.astimezone(tz).strftime("%H:%M")  # type: ignore[union-attr]
+
+
+def tage_bis(d: datetime | date, heute: date) -> int:
+    if isinstance(d, datetime):
+        d = d.date()
+    return (d - heute).days
+
+
+def ist_geburtstag(summary: str) -> bool:
+    return "geburtstag" in summary.lower() or "🎂" in summary
+
+
+def geburtstag_name(summary: str) -> str:
+    name = re.sub(r"(?i)\bgeburtstag\b|🎂|\bvon\b|\bhat\b", "", summary)
+    return name.strip(" :-–") or summary
+
+
+def countdowns(besondere: list[Termin], feiertage: list[Termin], heute: date, limit: int = 6) -> list[dict[str, Any]]:
+    kandidaten = list(besondere) + sortiert(t for t in feiertage if tage_bis(t.start, heute) >= 0)[:2]
+    liste = []
+    for t in kandidaten:
+        tage = tage_bis(t.start, heute)
+        if tage >= 0:
+            liste.append({"titel": t.summary, "tage": tage, "datum": t.start.isoformat()[:10],
+                          "geburtstag": ist_geburtstag(t.summary)})
+    liste.sort(key=lambda x: (x["tage"], x["titel"]))
+    return liste[:limit]
+
+
+def countdown_text(tage: int) -> str:
+    return "Heute! 🎉" if tage == 0 else ("Morgen" if tage == 1 else f"noch {tage} Tage")
+
+
+def muell_liste(termine: list[Termin], heute: date) -> list[dict[str, Any]]:
+    """Nächster Abholtermin je Tonne."""
+    gesehen: dict[str, dict[str, Any]] = {}
+    for t in sortiert(termine):
+        tage = tage_bis(t.start, heute)
+        if tage < 0:
+            continue
+        name = t.summary.strip()
+        if name not in gesehen:
+            gesehen[name] = {"tonne": name, "datum": t.start.isoformat()[:10], "tage": tage}
+    return sorted(gesehen.values(), key=lambda x: x["tage"])
+
+
+def muell_an_tag(termine: list[Termin], tag: date) -> list[str]:
+    namen = []
+    for t in termine:
+        s = t.start.date() if isinstance(t.start, datetime) else t.start
+        e = t.end.date() if isinstance(t.end, datetime) else t.end
+        if s <= tag < max(e, s + timedelta(days=1)) and t.summary.strip() not in namen:
+            namen.append(t.summary.strip())
+    return namen
+
+
+def ferien_info(termine: list[Termin], heute: date) -> dict[str, Any]:
+    for t in sortiert(termine):
+        start = t.start.date() if isinstance(t.start, datetime) else t.start
+        ende = t.end.date() if isinstance(t.end, datetime) else t.end
+        if ende <= heute:
+            continue
+        if start <= heute:
+            rest = (ende - heute).days
+            return {"titel": t.summary, "jetzt": True, "tage": rest, "text": f"{t.summary} · noch {rest} Tage frei"}
+        tage = (start - heute).days
+        return {"titel": t.summary, "jetzt": False, "tage": tage, "text": f"{t.summary} in {tage} Tagen"}
+    return {}
+
+
+def wetter_zur_zeit(forecast: list[dict[str, Any]], zeitpunkt: datetime) -> dict[str, Any] | None:
+    """Stundenvorhersage, die zum Zeitpunkt passt (letzte vor zeitpunkt+30min)."""
+    treffer = None
+    grenze = zeitpunkt + timedelta(minutes=30)
+    for f in forecast or []:
+        try:
+            dt = datetime.fromisoformat(str(f["datetime"]))
+        except (KeyError, ValueError):
+            continue
+        if dt <= grenze:
+            treffer = f
+    return treffer
+
+
+def wetter_bewertung(f: dict[str, Any] | None) -> tuple[bool, bool]:
+    """(nass, kalt)"""
+    if not f:
+        return False, False
+    nass = (
+        f.get("condition") in NASS
+        or float(f.get("precipitation_probability") or 0) >= 60
+        or float(f.get("precipitation") or 0) >= 0.5
+    )
+    kalt = float(f.get("temperature", 10)) <= 2
+    return nass, kalt
+
+
+def wetter_hinweis(f: dict[str, Any], start: datetime) -> str:
+    nass, kalt = wetter_bewertung(f)
+    teile = [f"{WETTER_DE.get(f.get('condition', ''), f.get('condition', '')).capitalize()}, "
+             f"{round(float(f.get('temperature', 0)))} °C um {start:%H:%M} Uhr."]
+    if nass:
+        teile.append("Regenjacke oder Schirm mitnehmen!")
+    if kalt:
+        teile.append("Warm anziehen, Mütze & Handschuhe!")
+    return " ".join(teile)
+
+
+def tages_zeilen(termine: list[Termin], tz) -> list[str]:
+    zeilen = []
+    for t in sortiert(termine):
+        z = f"{zeit_text(t, tz)} {t.summary}"
+        if t.location:
+            z += f" ({t.location})"
+        if t.fahrer:
+            z += f" 🚗 {t.fahrer}"
+        zeilen.append(z)
+    return zeilen
+
+
+def morgen_ansage(
+    jetzt: datetime,
+    wetter_tag: dict[str, Any] | None,
+    termine: list[Termin],
+    namen: dict[str, str],
+    besondere: list[Termin],
+    essen: list[str],
+    muell_heute: list[str],
+    ferien: dict[str, Any],
+) -> str:
+    """Text für die Alexa-Morgen-Ansage (ohne Emojis)."""
+    teile = [f"Guten Morgen! Heute ist {WOCHENTAGE[jetzt.weekday()]}, der {jetzt.day}. {MONATE[jetzt.month - 1]}."]
+    if wetter_tag:
+        w = f"Das Wetter: {WETTER_DE.get(wetter_tag.get('condition', ''), 'gemischt')}, bis {round(float(wetter_tag.get('temperature', 0)))} Grad"
+        if wetter_tag.get("templow") is not None:
+            w += f", morgens {round(float(wetter_tag['templow']))} Grad"
+        teile.append(w + ".")
+    if ferien.get("jetzt"):
+        teile.append(f"Es sind {ferien['titel']}, also schulfrei.")
+    zeitlich = [t for t in sortiert(termine) if not t.ganztag]
+    if zeitlich:
+        saetze = []
+        for t in zeitlich:
+            wer = "" if t.person == "familie" else f"{namen.get(t.person, t.person.capitalize())}: "
+            s = f"{t.start.astimezone(jetzt.tzinfo):%H:%M} Uhr {wer}{t.summary}"  # type: ignore[union-attr]
+            if t.fahrer:
+                s += f", {t.fahrer} fährt"
+            saetze.append(s)
+        teile.append("Heute steht an: " + ". ".join(saetze) + ".")
+    else:
+        teile.append("Heute stehen keine Termine an.")
+    for t in besondere:
+        teile.append(f"Und nicht vergessen: {t.summary}!")
+    for gericht in essen:
+        teile.append(f"Zum Essen gibt es {gericht}.")
+    if muell_heute:
+        teile.append(f"Heute wird {' und '.join(muell_heute)} abgeholt.")
+    teile.append("Einen schönen Tag!")
+    text = " ".join(teile)
+    text = re.sub(r"[^\w\s.,:!?()\-+]", "", text)
+    return re.sub(r"\s+", " ", text).strip()

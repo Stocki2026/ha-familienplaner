@@ -1,0 +1,179 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Family Planner",
+        "description": "Choose the shared family calendar and the family lists. You add people afterwards via “Configure”.",
+        "data": {
+          "titel": "Family name",
+          "familien_kalender": "Family calendar",
+          "familien_liste": "Family to-do list",
+          "einkaufsliste": "Shopping list",
+          "wetter": "Weather"
+        }
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Family Planner is already set up."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Family Planner",
+        "menu_options": {
+          "person_neu": "Add person",
+          "person_bearbeiten_waehlen": "Edit person",
+          "person_entfernen": "Remove person",
+          "kalender": "Extra calendars & pinboard",
+          "einstellungen": "Reminders & Alexa"
+        }
+      },
+      "person_neu": {
+        "title": "Add person",
+        "data": {
+          "name": "Name",
+          "farbe": "Color",
+          "person_entity": "Person in Home Assistant (for home/away and the phone view)",
+          "calendar_entity": "Own calendar",
+          "todo_entity": "Own to-do list",
+          "notify_service": "Phone notification (notify.mobile_app_…)",
+          "rotation": "Takes part in the chore rotation"
+        }
+      },
+      "person_bearbeiten_waehlen": {
+        "title": "Edit person",
+        "data": {
+          "slug": "Person"
+        }
+      },
+      "person_bearbeiten": {
+        "title": "Edit {name}",
+        "data": {
+          "name": "Name",
+          "farbe": "Color",
+          "person_entity": "Person in Home Assistant",
+          "calendar_entity": "Own calendar",
+          "todo_entity": "Own to-do list",
+          "notify_service": "Phone notification",
+          "rotation": "Takes part in the chore rotation"
+        }
+      },
+      "person_entfernen": {
+        "title": "Remove person",
+        "data": {
+          "personen": "People"
+        }
+      },
+      "kalender": {
+        "title": "Extra calendars",
+        "description": "All optional. Create local calendars with the “Local Calendar” integration, waste collection and school holidays with “Remote Calendar” (ICS link).",
+        "data": {
+          "besondere_tage": "Special days (birthdays, holidays)",
+          "feiertage": "Public holidays",
+          "muellabfuhr": "Waste collection",
+          "schulferien": "School holidays",
+          "essensplan": "Meal plan",
+          "pinnwand": "Pinboard (to-do list)"
+        }
+      },
+      "einstellungen": {
+        "title": "Reminders & Alexa",
+        "data": {
+          "erinnerung_minuten": "Reminder before events",
+          "morgen_uhrzeit": "Daily overview (morning)",
+          "abend_uhrzeit": "Preview of tomorrow",
+          "muell_uhrzeit": "Waste reminder the evening before",
+          "wetter_hinweis": "Weather hint before events with a location",
+          "fahrzeit": "Travel time warning (Waze Travel Time)",
+          "alexa": "Alexa devices for announcements (notify …_announce)",
+          "alexa_morgen": "Alexa morning briefing",
+          "alexa_uhrzeit": "Time of the morning briefing"
+        }
+      }
+    },
+    "error": {
+      "name_vergeben": "This name already exists."
+    }
+  },
+  "services": {
+    "termin_anlegen": {
+      "name": "Create event",
+      "description": "Creates an event in a person's or the family calendar.",
+      "fields": {
+        "person": {
+          "name": "For whom",
+          "description": "Person key (e.g. anna) or familie for the whole family."
+        },
+        "titel": {
+          "name": "What",
+          "description": "Event title."
+        },
+        "start": {
+          "name": "When",
+          "description": "Start."
+        },
+        "dauer": {
+          "name": "Duration",
+          "description": "Duration in minutes."
+        },
+        "ganztag": {
+          "name": "All day",
+          "description": "All-day event."
+        },
+        "ort": {
+          "name": "Where",
+          "description": "Location (used for weather and travel time hints)."
+        },
+        "fahrer": {
+          "name": "Driver",
+          "description": "Who drives / picks up (person key)."
+        },
+        "benachrichtigen": {
+          "name": "Notify",
+          "description": "Send a push notification to the person."
+        }
+      }
+    },
+    "gericht_planen": {
+      "name": "Plan a meal",
+      "description": "Adds a meal to the meal plan and puts the ingredients on the shopping list.",
+      "fields": {
+        "tag": {
+          "name": "Day",
+          "description": "Which day."
+        },
+        "gericht": {
+          "name": "Meal",
+          "description": "What's for dinner."
+        },
+        "zutaten": {
+          "name": "Ingredients",
+          "description": "One per line or comma separated."
+        }
+      }
+    },
+    "benachrichtigen": {
+      "name": "Notify",
+      "description": "Sends a push notification to one person or everyone.",
+      "fields": {
+        "person": {
+          "name": "To",
+          "description": "Person key or familie for everyone."
+        },
+        "titel": {
+          "name": "Title",
+          "description": "Heading."
+        },
+        "nachricht": {
+          "name": "Message",
+          "description": "Text."
+        }
+      }
+    },
+    "morgen_ansage": {
+      "name": "Morning briefing",
+      "description": "Plays the daily briefing on the Alexa devices and returns the text."
+    }
+  }
+}

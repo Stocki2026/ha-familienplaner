@@ -1,0 +1,72 @@
+termin_anlegen:
+  fields:
+    person:
+      required: true
+      example: anna
+      selector:
+        text:
+    titel:
+      required: true
+      example: Fußball
+      selector:
+        text:
+    start:
+      required: true
+      selector:
+        datetime:
+    dauer:
+      default: 60
+      selector:
+        number:
+          min: 5
+          max: 1440
+          step: 5
+          unit_of_measurement: min
+    ganztag:
+      default: false
+      selector:
+        boolean:
+    ort:
+      selector:
+        text:
+    fahrer:
+      example: carla
+      selector:
+        text:
+    benachrichtigen:
+      default: true
+      selector:
+        boolean:
+gericht_planen:
+  fields:
+    tag:
+      required: true
+      selector:
+        date:
+    gericht:
+      required: true
+      example: Lasagne
+      selector:
+        text:
+    zutaten:
+      example: "Nudelplatten, Hackfleisch, Tomaten"
+      selector:
+        text:
+          multiline: true
+benachrichtigen:
+  fields:
+    person:
+      required: true
+      example: familie
+      selector:
+        text:
+    titel:
+      required: true
+      selector:
+        text:
+    nachricht:
+      required: true
+      selector:
+        text:
+          multiline: true
+morgen_ansage:

@@ -1,0 +1,11 @@
+"""Textfelder des Termin-Formulars."""
+
+from .form import TitelText
+
+
+async def async_setup_entry(hass, entry, async_add_entities) -> None:
+    c = entry.runtime_data
+    async_add_entities([
+        TitelText(c, "titel", "Neuer Termin: Was?", "mdi:text"),
+        TitelText(c, "ort", "Neuer Termin: Wo?", "mdi:map-marker"),
+    ])
