@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
+import hashlib
 import logging
 from pathlib import Path
 from typing import Any
@@ -168,6 +169,12 @@ def _dienste_registrieren(hass: HomeAssistant) -> None:
     )
 
 
+def _js_dateien() -> list[tuple[str, str]]:
+    """(Dateiname, Kurz-Hash) aller Frontend-Dateien; der Hash erzwingt nach Updates frisches JS."""
+    pfad = Path(__file__).parent / "frontend"
+    return [(d.name, hashlib.sha1(d.read_bytes()).hexdigest()[:10]) for d in sorted(pfad.glob("*.js"))]
+
+
 async def _frontend_registrieren(hass: HomeAssistant) -> None:
     key = f"{DOMAIN}_frontend"
     if hass.data.get(key):
@@ -175,9 +182,15 @@ async def _frontend_registrieren(hass: HomeAssistant) -> None:
     hass.data[key] = True
     pfad = Path(__file__).parent / "frontend"
     await hass.http.async_register_static_paths([StaticPathConfig(URL_BASE, str(pfad), False)])
-    version = "0.1.0"
-    for datei in sorted(pfad.glob("*.js")):
-        add_extra_js_url(hass, f"{URL_BASE}/{datei.name}?v={version}")
+    for name, hash_ in await hass.async_add_executor_job(_js_dateien):
+        add_extra_js_url(hass, f"{URL_BASE}/{name}?v={hash_}")
+
+
+async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
+    """Dashboard-Strategie und Karten immer bereitstellen – auch wenn die Einrichtung
+    (noch) fehlschlägt. Sonst meldet das Dashboard nur „Timeout waiting for strategy“."""
+    await _frontend_registrieren(hass)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: FamilienplanerConfigEntry) -> bool:

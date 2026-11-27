@@ -180,7 +180,7 @@ class FamilienplanerStrategy extends HTMLElement {
     if (!id) {
       return {
         title: "Familienplaner",
-        views: [{ title: "Familienplaner", cards: [{ type: "markdown", content: "## Familienplaner\nDie Integration ist noch nicht eingerichtet. *Einstellungen → Geräte & Dienste → Integration hinzufügen → Familienplaner*." }] }],
+        views: [{ title: "Familienplaner", cards: [{ type: "markdown", content: "## Familienplaner\nDie Integration ist noch nicht eingerichtet oder konnte nicht starten.\n\n- Einrichten: *Einstellungen → Geräte & Dienste → Integration hinzufügen → Familienplaner*\n- Fehler ansehen: *Einstellungen → System → Protokolle* (nach „familienplaner“ suchen)\n\n*Not set up yet or failed to start – see Settings → System → Logs.*" }] }],
       };
     }
     const u = hass.states[id].attributes;
