@@ -103,7 +103,7 @@ Die Ansicht **Aufgaben** erscheint automatisch im Familienplaner-Dashboard:
   am Ende wartet die Schatzkiste. Danach startet „Neue Schatzinsel“ von vorne. Eigene Stationen mit
   `familienplaner.schatzkarte_festlegen`.
 - **Aufgaben nehmen**: Ein Katalog mit über 40 klassischen Haushaltsaufgaben (Küche, Putzen, Wäsche, Ordnung,
-  Draußen, Tiere), jede mit Bild und Punkten. Antippen = die Aufgabe landet für heute in der eigenen Liste. Eltern
+  Draußen, Tiere), jede mit Bild und Punkten. Person antippen, eine oder mehrere Aufgaben auswählen und mit einem Knopf für heute eintragen. Eltern
   (Admins) können sie auch anderen geben. Eigener Katalog mit `familienplaner.katalog_festlegen`.
 - **Belohnungs-Shop**: Punkte vom Konto einlösen; in der Familienliste erscheint „🎁 Ben löst ein: …“ für die Eltern.
 - **Haushalts-Rotation**: Spülmaschine, Tisch decken (täglich) und Müll (Mo + Do) wechseln morgens reihum zwischen
