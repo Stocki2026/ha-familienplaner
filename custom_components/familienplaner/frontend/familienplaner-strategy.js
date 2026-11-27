@@ -25,6 +25,7 @@
  *     #   kerzen: [light.wohnzimmer, light.kueche]   schwebende Kerzen in „Häuser“ schalten Lampen
  *     #   orte: [Zuhause, Arbeit, Schule, Training, Unterwegs, Freunde]   Felder der Familienuhr
  *     #   haeuser: { anna: { name: Sternenlicht } }  eigene Hausnamen
+ *     #   cockpit: true                    Cockpit zusätzlich zeigen (sonst ersetzt die Seite „Figuren“ es)
  */
 
 const VERSION = "0.1.0";
@@ -220,6 +221,31 @@ function rennenSensor(hass) {
   });
 }
 
+// Normale Karten im Stil Zauberwelt auf Pergament legen (Überschriften in Gold)
+const ZAUBER_EIGEN = /^custom:familienplaner-(zauber|haeuser|kessel|figuren|wand)/;
+function zauberKarte(k) {
+  if (!k || !k.type || ZAUBER_EIGEN.test(k.type)) return k;
+  if (k.type === "vertical-stack" || k.type === "horizontal-stack" || k.type === "grid") return { ...k, cards: (k.cards || []).map(zauberKarte) };
+  const { visibility, grid_options, view_layout, ...rest } = k;
+  return {
+    type: "custom:familienplaner-zauberrahmen",
+    karte: rest,
+    ...(visibility ? { visibility } : {}),
+    ...(grid_options ? { grid_options } : {}),
+    ...(view_layout ? { view_layout } : {}),
+  };
+}
+
+function zauberAnsicht(v) {
+  const { theme, ...rest } = v;
+  return {
+    ...rest,
+    background: ZAUBER_HINTERGRUND,
+    ...(v.cards ? { cards: v.cards.map(zauberKarte) } : {}),
+    ...(v.sections ? { sections: v.sections.map((sec) => ({ ...sec, cards: (sec.cards || []).map(zauberKarte) })) } : {}),
+  };
+}
+
 function zauberAnsichten(u, hass, config, opt, teile) {
   const personen = u.personen || [];
   const mitSensor = personen.filter((p) => p.person || p.sensor).map((p) => ({ slug: p.slug, name: p.name, farbe: p.farbe, person: p.person, sensor: p.sensor }));
@@ -239,9 +265,16 @@ function zauberAnsichten(u, hass, config, opt, teile) {
           { type: "custom:familienplaner-zauberuhr", personen: mitSensor, ...(opt.orte ? { orte: opt.orte } : {}) },
         ] },
         buch("tag"),
-        { type: "grid", columns: 3, square: false, cards: [...teile.extras, { type: "vertical-stack", cards: [u.formular && u.formular.satz ? { type: "custom:familienplaner-schnell" } : formularKarte(u), ...teile.kacheln] }] },
+        zauberKarte({ type: "grid", columns: 3, square: false, cards: [...teile.extras, { type: "vertical-stack", cards: [u.formular && u.formular.satz ? { type: "custom:familienplaner-schnell" } : formularKarte(u), ...teile.kacheln] }] }),
       ],
     }],
+  };
+  const figuren = {
+    ...basis,
+    title: "Figuren",
+    path: "figuren",
+    icon: "mdi:wizard-hat",
+    cards: [{ type: "custom:familienplaner-figuren", personen: personen.map((p) => ({ slug: p.slug, name: p.name, farbe: p.farbe })), ...(opt.haeuser ? { haeuser: opt.haeuser } : {}) }],
   };
   const zauberbuch = {
     ...basis,
@@ -258,16 +291,16 @@ function zauberAnsichten(u, hass, config, opt, teile) {
     }],
   };
   const sections = personen.map((p) => {
-    const karten = [{ type: "heading", heading: p.name, icon: "mdi:account" }, buch("liste", { person: p })];
-    if (p.liste) karten.push({ type: "todo-list", entity: p.liste });
+    const karten = [zauberKarte({ type: "heading", heading: p.name, icon: "mdi:account" }), buch("liste", { person: p })];
+    if (p.liste) karten.push(zauberKarte({ type: "todo-list", entity: p.liste }));
     const sec = { type: "grid", cards: karten };
     if (p.user_id) sec.visibility = [{ condition: "user", users: [p.user_id] }];
     return sec;
   });
   const gemeinsam = [u.familie.liste && { type: "todo-list", entity: u.familie.liste, title: "Familie" }, u.listen && u.listen.einkauf && { type: "todo-list", entity: u.listen.einkauf, title: "Einkauf" }].filter(Boolean);
-  if (gemeinsam.length) sections.push({ type: "grid", cards: [{ type: "heading", heading: "Gemeinsam", icon: "mdi:home-heart" }, ...gemeinsam] });
+  if (gemeinsam.length) sections.push({ type: "grid", cards: [{ type: "heading", heading: "Gemeinsam", icon: "mdi:home-heart" }, ...gemeinsam].map(zauberKarte) });
   const mein = { title: "Mein Bereich", path: "mein-bereich", icon: "mdi:cellphone-text", type: "sections", max_columns: 3, background: ZAUBER_HINTERGRUND, sections };
-  const views = [heute, zauberbuch, mein];
+  const views = [heute, figuren, zauberbuch, mein];
   const rennen = rennenSensor(hass);
   if (rennen) {
     views.push({ ...basis, title: "Häuser", path: "haeuser", icon: "mdi:shield-crown-outline", cards: [{ type: "custom:familienplaner-haeuser", entity: rennen, kerzen: opt.kerzen || [], ...(opt.haeuser ? { haeuser: opt.haeuser } : {}) }] });
@@ -393,7 +426,8 @@ class FamilienplanerStrategy extends HTMLElement {
     const views = zauber ? zauberAnsichten(u, hass, config, zauberOpt, { personenKarte, extras, kacheln }) : [woche, mein, familie];
 
     // ------------------------------------------------------------------ Cockpit
-    if (config.cockpit !== false && (await karteVerfuegbar("familienplaner-cockpit"))) {
+    // Im Stil Zauberwelt ersetzt die Figuren-Seite das Cockpit (zauber.cockpit: true holt es zurück)
+    if (config.cockpit !== false && (!zauber || zauberOpt.cockpit === true) && (await karteVerfuegbar("familienplaner-cockpit"))) {
       const { zuerst, ...optionen } = config.cockpit && typeof config.cockpit === "object" ? config.cockpit : {};
       const cockpit = {
         title: "Cockpit",
@@ -415,7 +449,7 @@ class FamilienplanerStrategy extends HTMLElement {
 
     // -------------------------------------------------------------------- Essen
     if (u.kalender && u.kalender.essensplan) {
-      views.push({
+      const essen = {
         title: "Essen",
         path: "essen",
         icon: "mdi:silverware-fork-knife",
@@ -426,7 +460,8 @@ class FamilienplanerStrategy extends HTMLElement {
           { type: "grid", cards: [{ type: "heading", heading: "Essensplan", icon: "mdi:silverware-fork-knife" }, agendaKarte(hacs, [{ entity: u.kalender.essensplan, color: "#B8A07E" }], undefined, 7)] },
           ...(u.listen && u.listen.einkauf ? [{ type: "grid", cards: [{ type: "heading", heading: "Einkaufsliste", icon: "mdi:cart-outline" }, { type: "todo-list", entity: u.listen.einkauf }] }] : []),
         ],
-      });
+      };
+      views.push(zauber ? zauberAnsicht(essen) : essen);
     }
 
     // -------------------------------------------------------------------- Monat
@@ -443,7 +478,7 @@ class FamilienplanerStrategy extends HTMLElement {
     for (const erweiterung of window.familienplanerViews || []) {
       try {
         const v = await erweiterung(u, hass, { theme, hacs });
-        if (v) views.push(...(Array.isArray(v) ? v : [v]));
+        if (v) views.push(...(Array.isArray(v) ? v : [v]).map((x) => (zauber ? zauberAnsicht(x) : x)));
       } catch (e) {
         console.warn("Familienplaner: Erweiterung fehlgeschlagen", e);
       }

@@ -71,6 +71,8 @@ class FamilienplanerCoordinator(DataUpdateCoordinator[PlanerDaten]):
         self._lang_cache: dict[str, Any] = {}
         self._lang_zeit: datetime | None = None
         self._store: Store[dict[str, Any]] = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.gesendet")
+        self._figuren_store: Store[dict[str, Any]] = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.figuren")
+        self.figuren: dict[str, dict[str, Any]] = {}
         self._gesendet: dict[str, str] = {}
         self._abfahrt: dict[str, dict[str, Any]] = {}
         self._unsubs: list[CALLBACK_TYPE] = []
@@ -102,7 +104,14 @@ class FamilienplanerCoordinator(DataUpdateCoordinator[PlanerDaten]):
     async def async_start(self) -> None:
         gespeichert = await self._store.async_load() or {}
         self._gesendet = gespeichert.get("gesendet", {})
+        self.figuren = (await self._figuren_store.async_load() or {}).get("figuren", {})
         self._planen()
+
+    async def async_figur_setzen(self, slug: str, figur: dict[str, Any]) -> None:
+        """Zauberer-Figur einer Person speichern (Stil Zauberwelt)."""
+        self.figuren[slug] = {**self.figuren.get(slug, {}), **figur}
+        await self._figuren_store.async_save({"figuren": self.figuren})
+        self.async_update_listeners()
 
     @callback
     def async_stop(self) -> None:

@@ -66,6 +66,24 @@ SCHEMA_NACHRICHT = vol.Schema(
 )
 
 
+FARBE = vol.Match(r"^#[0-9a-fA-F]{6}$")
+SCHEMA_FIGUR = vol.Schema(
+    {
+        vol.Required("person"): cv.string,
+        vol.Optional("haut"): FARBE,
+        vol.Optional("haar"): FARBE,
+        vol.Optional("augen"): FARBE,
+        vol.Optional("frisur"): vol.In(["kurz", "lang", "locken", "zopf"]),
+        vol.Optional("hut"): vol.In(["spitz", "kapuze", "krone"]),
+        vol.Optional("stab"): vol.In(["holz", "knorrig", "silber", "kristall"]),
+        vol.Optional("zeichen"): vol.In(["stern", "mond", "flamme", "blatt"]),
+        vol.Optional("begleiter"): vol.In(["eule", "katze", "kroete", "drache"]),
+        vol.Optional("tier"): vol.In(["fuchs", "katze", "wolf", "adler"]),
+        vol.Optional("brille"): cv.boolean,
+    }
+)
+
+
 def _coordinator(hass: HomeAssistant) -> FamilienplanerCoordinator:
     for entry in hass.config_entries.async_loaded_entries(DOMAIN):
         return entry.runtime_data
@@ -275,6 +293,16 @@ def _dienste_registrieren(hass: HomeAssistant) -> None:
     hass.services.async_register(DOMAIN, "termin_anlegen", termin, schema=SCHEMA_TERMIN)
     hass.services.async_register(DOMAIN, "gericht_planen", gericht, schema=SCHEMA_GERICHT)
     hass.services.async_register(DOMAIN, "benachrichtigen", nachricht, schema=SCHEMA_NACHRICHT)
+
+    async def figur(call: ServiceCall) -> None:
+        coord = _coordinator(hass)
+        daten = dict(call.data)
+        slug = str(daten.pop("person")).lower()
+        if not coord.person(slug):
+            raise ServiceValidationError(f"Unbekannte Person: {slug}")
+        await coord.async_figur_setzen(slug, daten)
+
+    hass.services.async_register(DOMAIN, "figur_setzen", figur, schema=SCHEMA_FIGUR)
     hass.services.async_register(
         DOMAIN, "morgen_ansage", ansage, schema=vol.Schema({}), supports_response=SupportsResponse.OPTIONAL
     )

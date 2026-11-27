@@ -12,6 +12,8 @@
  *                                       der normalen Kalenderkarte: Eintragen, Ändern, Löschen, „Wer hat Zeit?“)
  *   custom:familienplaner-haeuser       Familien-Häuser mit Edelsteingläsern (Wochenpunkte) und Kerzen für Lampen
  *   custom:familienplaner-kessel        Spiel „Familienkessel“: gemeinsam einen Trank brauen (Familienziel)
+ *   custom:familienplaner-figuren       Zauberer-Figuren der Familie mit Werkstatt, Tiergestalt, Stimmungen, Aufstieg
+ *   custom:familienplaner-zauberrahmen  legt eine normale Karte auf Pergament (für die übrigen Seiten)
  *
  * Alles reines CSS/SVG, keine Bilddateien. Schriften kommen von Google Fonts (ohne Internet: Serifenschrift).
  */
@@ -82,7 +84,7 @@
     :host { display: block;
       --z-tinte: #2a1a0e; --z-gold-hell: #f3dfa6;
       --z-korn: ${svgUrl("<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .25  0 0 0 0 .16  0 0 0 0 .07  0 0 0 .40 0'/></filter><rect width='100%' height='100%' filter='url(#n)'/></svg>")};
-      --z-flecken: ${svgUrl("<svg xmlns='http://www.w3.org/2000/svg' width='700' height='700'><filter id='f'><feTurbulence type='fractalNoise' baseFrequency='.009' numOctaves='5' seed='11'/><feColorMatrix values='0 0 0 0 .5  0 0 0 0 .3  0 0 0 0 .08  0 0 0 -1.5 .95'/></filter><rect width='100%' height='100%' filter='url(#f)'/></svg>")};
+      --z-flecken: ${svgUrl("<svg xmlns='http://www.w3.org/2000/svg' width='1800' height='1800'><filter id='f'><feTurbulence type='fractalNoise' baseFrequency='.0039' numOctaves='5' seed='11' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .5  0 0 0 0 .3  0 0 0 0 .08  0 0 0 -1.5 .95'/></filter><rect width='100%' height='100%' filter='url(#f)'/></svg>")};
       --z-leder: ${svgUrl("<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='l'><feTurbulence type='turbulence' baseFrequency='.09' numOctaves='4' seed='5'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -.9 .75'/></filter><rect width='100%' height='100%' filter='url(#l)'/></svg>")};
       --z-gold: linear-gradient(176deg,#fff6cf 0%,#f2d27a 22%,#b9842a 48%,#ffe9a3 62%,#c8933a 78%,#7a5214 100%);
       --z-pergament: var(--z-flecken), var(--z-korn), linear-gradient(170deg,#f5e8c8,#ead6a6 55%,#dcc18a);
@@ -114,6 +116,8 @@
     .sp { display: flex; flex-direction: column; align-items: center; border: 0; background: none; padding: 0; filter: drop-shadow(0 5px 5px rgba(0,0,0,.6)); transition: filter .25s, transform .25s; }
     .sp:active { transform: scale(.94); }
     .sp.an { filter: drop-shadow(0 0 14px rgba(255,220,140,.95)) drop-shadow(0 0 3px #fff3c4); }
+    .siegelkopf { width: 80%; height: 80%; border-radius: 50%; overflow: hidden; display: block; background: radial-gradient(circle at 50% 35%, rgba(255,255,255,.45), rgba(0,0,0,.15)); box-shadow: inset 0 0 0 2px rgba(0,0,0,.25); }
+    .siegelkopf svg { width: 100%; height: 100%; display: block; }
     .sp small { margin-top: 4px; font: 600 16px 'Cormorant Garamond', Georgia, serif; color: var(--z-gold-hell); text-shadow: 0 1px 2px #000; }
     .siegel { width: clamp(48px, 5.5vw, 64px); height: clamp(48px, 5.5vw, 64px); display: grid; place-items: center; font: 800 clamp(19px, 2vw, 25px) Cinzel, Georgia, serif;
       -webkit-mask: ${siegelMaske} center/100% 100%; mask: ${siegelMaske} center/100% 100%;
@@ -148,6 +152,258 @@
     return { index: 5, name: zustand, seit, zone: zustand };
   }
   const uhrzeit = (d) => (d ? `${p2(d.getHours())}:${p2(d.getMinutes())}` : "");
+
+  // ================================================================ Zauberer-Figuren
+  // Jede Person hat eine eigene Figur (Umhang in Personenfarbe). Aussehen wird mit
+  // familienplaner.figur_setzen gespeichert und steht am Übersichts-Sensor unter "figuren".
+  const HAUT = ["#ffe0c4", "#f5c8a0", "#d9a27a", "#a86b45", "#6e4128"];
+  const HAARE = ["#2b1a12", "#6b3b1e", "#c77b2e", "#e8c26a", "#b9b2a8", "#8a2f2f"];
+  const AUGEN = ["#3d6b3a", "#3a6ab0", "#6b3b1e", "#2a7a5a", "#5a5a6a"];
+  const FIG_WAHL = {
+    frisur: ["kurz", "lang", "locken", "zopf"],
+    hut: ["spitz", "kapuze", "krone"],
+    stab: ["holz", "knorrig", "silber", "kristall"],
+    zeichen: ["stern", "mond", "flamme", "blatt"],
+    begleiter: ["eule", "katze", "kroete", "drache"],
+    tier: ["fuchs", "katze", "wolf", "adler"],
+  };
+  // Rang-Stufen (Gesamtpunkte aus dem Familien-Rennen) und was sie freischalten
+  const RAENGE = [0, 250, 750, 1500, 3000];
+  const FREI_AB = { "stab:knorrig": 2, "stab:silber": 3, "stab:kristall": 4, "hut:krone": 4, "begleiter:drache": 4 };
+  const FIG_T = {
+    de: {
+      raenge: ["Lehrling", "Geselle", "Zauberer", "Meister", "Erzmagier"],
+      stimmung: { normal: "wach", froh: "freut sich", gaehnt: "gähnt", schlaeft: "schläft" },
+      werte: {
+        frisur: { kurz: "Kurz", lang: "Lang", locken: "Locken", zopf: "Zopf" },
+        hut: { spitz: "Spitzhut", kapuze: "Kapuze", krone: "Sternkrone" },
+        stab: { holz: "Holz", knorrig: "Knorrig", silber: "Silber", kristall: "Kristall" },
+        zeichen: { stern: "Stern", mond: "Mond", flamme: "Flamme", blatt: "Blatt" },
+        begleiter: { eule: "Eule", katze: "Katze", kroete: "Kröte", drache: "Drache" },
+        tier: { fuchs: "Fuchs", katze: "Katze", wolf: "Wolf", adler: "Adler" },
+      },
+      gruppen: { haut: "Hautton", haar: "Haarfarbe", augen: "Augenfarbe", frisur: "Frisur", hut: "Kopfbedeckung", stab: "Zauberstab", zeichen: "Zeichen", begleiter: "Begleittier", tier: "Tiergestalt", brille: "Brille" },
+      ohne: "Ohne", rund: "Rund", gestalten: "Gestalten", speichern: "Speichern", abbrechen: "Abbrechen", verwandeln: "Verwandeln",
+      punkte: "Punkte", noch: "noch", bis: "bis", ab: "ab", titel: "Die Zauberer der Familie", werkstatt: "Figuren-Werkstatt",
+      unter: "Antippen verwandelt die Figur in ihre Tiergestalt", gesperrt: "Freigeschaltet ab", gespeichert: "Gespeichert",
+    },
+    en: {
+      raenge: ["Apprentice", "Journeyman", "Wizard", "Master", "Archmage"],
+      stimmung: { normal: "awake", froh: "happy", gaehnt: "yawning", schlaeft: "asleep" },
+      werte: {
+        frisur: { kurz: "Short", lang: "Long", locken: "Curls", zopf: "Braid" },
+        hut: { spitz: "Pointed hat", kapuze: "Hood", krone: "Star crown" },
+        stab: { holz: "Wood", knorrig: "Gnarled", silber: "Silver", kristall: "Crystal" },
+        zeichen: { stern: "Star", mond: "Moon", flamme: "Flame", blatt: "Leaf" },
+        begleiter: { eule: "Owl", katze: "Cat", kroete: "Toad", drache: "Dragon" },
+        tier: { fuchs: "Fox", katze: "Cat", wolf: "Wolf", adler: "Eagle" },
+      },
+      gruppen: { haut: "Skin", haar: "Hair colour", augen: "Eyes", frisur: "Hairstyle", hut: "Headwear", stab: "Wand", zeichen: "Sign", begleiter: "Companion", tier: "Animal form", brille: "Glasses" },
+      ohne: "None", rund: "Round", gestalten: "Customise", speichern: "Save", abbrechen: "Cancel", verwandeln: "Transform",
+      punkte: "points", noch: "", bis: "to", ab: "from", titel: "The family's wizards", werkstatt: "Figure workshop",
+      unter: "Tap a figure to turn it into its animal form", gesperrt: "Unlocked at", gespeichert: "Saved",
+    },
+  };
+  const ft = (hass) => FIG_T[de(hass) ? "de" : "en"];
+  const ZEICHEN_PFAD = {
+    stern: '<path d="M0 -9 L2.6 -2.8 L9 -2.8 L3.8 1.3 L5.6 8 L0 4.2 L-5.6 8 L-3.8 1.3 L-9 -2.8 L-2.6 -2.8Z"/>',
+    mond: '<path d="M3 -9 A9 9 0 1 0 3 9 A7 7 0 1 1 3 -9Z"/>',
+    flamme: '<path d="M0 -10 C 5 -4, 7 0, 5 5 C 3 9, -3 9, -5 5 C -7 1, -3 -2, -1 -5 C 0 -2, 2 -1, 2 -3 C 2 -5, 1 -8, 0 -10Z"/>',
+    blatt: '<path d="M0 9 C -8 4, -7 -5, 0 -10 C 7 -5, 8 4, 0 9Z M0 9 V-6"/>',
+  };
+  const hell = (f, a) => {
+    const m = /^#?([0-9a-f]{6})$/i.exec(String(f || "").trim());
+    const n = m ? parseInt(m[1], 16) : 0x8c7b6b;
+    const k = (v) => Math.max(0, Math.min(255, v + a));
+    return "#" + ((1 << 24) | (k(n >> 16) << 16) | (k((n >> 8) & 255) << 8) | k(n & 255)).toString(16).slice(1);
+  };
+  const hash = (s) => [...String(s)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
+  const farbeHex = (f) => {
+    if (/^#[0-9a-f]{6}$/i.test(f || "")) return f;
+    const namen = { blue: "#2f6fd6", pink: "#e0559a", orange: "#f08a24", green: "#3aa35a", red: "#d33a3a", purple: "#8a4fd1", teal: "#1f9e95", yellow: "#e0b62a", brown: "#8a5a34", grey: "#7a7a7a", cyan: "#20a8c8", indigo: "#4a54c8", amber: "#f0a020", lime: "#8ac234" };
+    return namen[String(f || "").replace(/^var\(--|-color\)$/g, "")] || "#8a4fd1";
+  };
+
+  /** Standard-Aussehen aus dem Kürzel, damit jede Figur von Anfang an anders aussieht. */
+  function figurStandard(slug) {
+    const h = hash(slug || "x");
+    return {
+      haut: HAUT[h % HAUT.length], haar: HAARE[(h >> 3) % HAARE.length], augen: AUGEN[(h >> 5) % AUGEN.length],
+      frisur: FIG_WAHL.frisur[(h >> 7) % 4], hut: (h >> 9) % 5 === 0 ? "kapuze" : "spitz", stab: "holz",
+      zeichen: FIG_WAHL.zeichen[(h >> 11) % 4], begleiter: FIG_WAHL.begleiter[(h >> 13) % 3], tier: FIG_WAHL.tier[(h >> 15) % 4], brille: false,
+    };
+  }
+
+  let uebersichtId = null;
+  const uebersicht = (hass) => {
+    if (uebersichtId && hass.states[uebersichtId]) return hass.states[uebersichtId].attributes;
+    uebersichtId = Object.keys(hass.states).find((id) => id.startsWith("sensor.") && hass.states[id].attributes.personen && "figuren" in hass.states[id].attributes) || null;
+    return uebersichtId ? hass.states[uebersichtId].attributes : null;
+  };
+  const rennenVon = (hass) => {
+    const id = Object.keys(hass.states).find((x) => {
+      const a = hass.states[x].attributes;
+      return x.startsWith("sensor.") && Array.isArray(a.fahrer) && a.entitaeten && Array.isArray(a.dienste);
+    });
+    return id ? hass.states[id].attributes : null;
+  };
+  const rangAus = (punkte) => RAENGE.reduce((r, ab, i) => (punkte >= ab ? i : r), 0);
+  const letzteWoche = {};
+  const frohBis = {};
+
+  /** Stimmung nach Uhrzeit und frisch verdienten Punkten. */
+  function stimmungVon(slug, woche) {
+    const jetzt = Date.now();
+    if (woche != null) {
+      if (letzteWoche[slug] != null && woche > letzteWoche[slug]) frohBis[slug] = jetzt + 10 * 60000;
+      letzteWoche[slug] = woche;
+    }
+    const st = new Date().getHours();
+    if (st >= 22 || st < 6) return "schlaeft";
+    if (frohBis[slug] > jetzt) return "froh";
+    if (st < 8) return "gaehnt";
+    return "normal";
+  }
+
+  /** Vollständige Figur einer Person (Aussehen + Farbe + Rang + Stimmung). */
+  function figurVon(hass, person) {
+    const slug = person.slug || "";
+    const u = hass && uebersicht(hass);
+    const r = hass && rennenVon(hass);
+    const f = r && (r.fahrer || []).find((x) => x.slug === slug);
+    const punkte = f ? Number(f.gesamt != null ? f.gesamt : f.punkte) || 0 : 0;
+    const rang = rangAus(punkte);
+    return {
+      ...figurStandard(slug), ...((u && u.figuren && u.figuren[slug]) || {}),
+      farbe: farbeHex(person.farbe || (f && f.farbe_hex)), name: person.name || "", slug, punkte, rang,
+      stimmung: person.stimmung || stimmungVon(slug, f ? Number(f.woche) || 0 : null),
+    };
+  }
+
+  let figNr = 0;
+  /** SVG-Inhalt der Figur (Koordinaten 0..200 x 0..250). portrait: nur Kopf, ohne Stab/Begleiter. */
+  function figurInhalt(o, portrait = false) {
+    const id = `zf${figNr++}`;
+    const u1 = o.farbe, u2 = hell(o.farbe, -70);
+    const haut = o.haut, haar = o.haar, stim = o.stimmung || "normal", rang = o.rang || 0;
+    const augen = stim === "schlaeft" || stim === "gaehnt"
+      ? `<path d="M74 128 q8 ${stim === "gaehnt" ? -5 : 6} 16 0 M110 128 q8 ${stim === "gaehnt" ? -5 : 6} 16 0" stroke="#2a1a10" stroke-width="3.2" fill="none" stroke-linecap="round"/>`
+      : `<g><ellipse cx="82" cy="126" rx="9" ry="${stim === "froh" ? 9 : 11}" fill="#fff"/><ellipse cx="118" cy="126" rx="9" ry="${stim === "froh" ? 9 : 11}" fill="#fff"/>
+         <ellipse cx="83" cy="128" rx="6" ry="7.5" fill="${o.augen}"/><ellipse cx="119" cy="128" rx="6" ry="7.5" fill="${o.augen}"/>
+         <circle cx="83" cy="129" r="3.4" fill="#120c08"/><circle cx="119" cy="129" r="3.4" fill="#120c08"/>
+         <circle cx="85.5" cy="124.5" r="2.4" fill="#fff"/><circle cx="121.5" cy="124.5" r="2.4" fill="#fff"/>
+         ${stim === "froh" ? `<path d="M72 134 q10 -8 20 0 v6 h-20z M108 134 q10 -8 20 0 v6 h-20z" fill="${haut}"/>` : ""}
+         <ellipse class="lid" cx="82" cy="115" rx="10" ry="12" fill="${hell(haut, -12)}"/><ellipse class="lid" cx="118" cy="115" rx="10" ry="12" fill="${hell(haut, -12)}"/></g>`;
+    const brauen = `<path d="M72 ${stim === "froh" ? 108 : 111} q10 -6 20 -1 M108 ${stim === "froh" ? 107 : 110} q10 -5 20 1" stroke="${hell(haar, -10)}" stroke-width="3.4" fill="none" stroke-linecap="round"/>`;
+    const mund = stim === "gaehnt" ? `<ellipse class="mund-g" cx="100" cy="150" rx="7" ry="9" fill="#5a1f1f" stroke="#2a1010" stroke-width="1.5"/>`
+      : stim === "schlaeft" ? `<path d="M95 149 q5 3 10 0" stroke="#5a2a1a" stroke-width="2.4" fill="none" stroke-linecap="round"/>`
+      : stim === "froh" ? `<path d="M88 144 q12 14 24 0 z" fill="#7a2a24" stroke="#4a1a14" stroke-width="1.6" stroke-linejoin="round"/><path d="M93 151 q7 4 14 0" fill="#e86b6b"/>`
+      : `<path d="M91 146 q9 7 18 0" stroke="#5a2a1a" stroke-width="2.6" fill="none" stroke-linecap="round"/>`;
+    const frisur = o.frisur;
+    const langHinten = frisur === "lang" ? `<path d="M56 112 C 48 150, 52 178, 66 188 C 72 176, 70 160, 72 150 L128 150 C 130 160, 128 176, 134 188 C 148 178, 152 150, 144 112 Z" fill="${haar}"/>` : "";
+    const haarHinten = frisur === "zopf" ? `<path d="M140 130 C 162 150, 160 186, 150 204 C 146 210, 140 206, 142 198 C 150 176, 148 156, 136 140Z" fill="${haar}"/><circle cx="147" cy="200" r="5" fill="${u1}"/>`
+      : frisur === "locken" ? `<g fill="${haar}">${[[56, 120], [60, 142], [144, 120], [140, 142], [64, 104], [136, 104]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="14"/>`).join("")}</g>` : "";
+    const haarVorne = frisur === "locken"
+      ? `<g fill="${haar}">${[[70, 96], [86, 90], [102, 88], [118, 90], [132, 98]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="11"/>`).join("")}</g>`
+      : `<path d="M56 116 C 56 84, 80 76, 100 78 C 124 76, 146 86, 145 116 C 136 102, 122 98, 112 104 C 106 94, 92 92, 84 100 C 74 96, 62 104, 56 116Z" fill="${haar}"/><path d="M84 92 q12 -6 26 -2" stroke="${hell(haar, 40)}" stroke-width="3" fill="none" opacity=".5" stroke-linecap="round"/>`;
+    const sterne = [...Array(Math.min(rang, 4))].map((_, i) => `<g transform="translate(${92 + (i % 2) * 16} ${60 - i * 12}) scale(.55)" fill="#ffe9a8">${ZEICHEN_PFAD.stern}</g>`).join("");
+    const hut = o.hut === "kapuze"
+      ? `<path d="M46 132 C 40 70, 80 50, 100 50 C 128 50, 164 74, 154 132 C 150 110, 132 90, 100 90 C 70 90, 52 108, 46 132Z" fill="${u1}"/><path d="M60 96 C 80 74, 122 74, 140 96" stroke="${hell(u1, 30)}" stroke-width="3" fill="none" opacity=".6"/>`
+      : o.hut === "krone"
+      ? `<path d="M66 92 L70 66 L84 80 L100 58 L116 80 L130 66 L134 92 Z" fill="#e9c46a" stroke="#8a6420" stroke-width="2"/><circle cx="100" cy="76" r="5" fill="${u1}"/><circle cx="76" cy="84" r="3" fill="#fff"/><circle cx="124" cy="84" r="3" fill="#fff"/>`
+      : `<path d="M48 96 C 70 84, 130 84, 152 96 C 140 104, 60 104, 48 96Z" fill="${hell(u2, -10)}"/><path d="M66 94 C 80 60, 96 30, 128 ${rang >= 3 ? 6 : 16} C 116 34, 120 64, 134 94 Z" fill="${u2}"/><path d="M66 94 C 80 60, 96 30, 128 ${rang >= 3 ? 6 : 16} C 104 40, 96 66, 90 94Z" fill="${hell(u2, 22)}" opacity=".55"/>
+         <path d="M68 90 C 90 84, 112 84, 134 90 L133 96 C 112 90, 90 90, 69 96Z" fill="${rang >= 2 ? "#d7b25a" : hell(u1, -20)}"/>${sterne}`;
+    const begleiter = {
+      eule: `<ellipse cx="0" cy="0" rx="15" ry="18" fill="#a07850"/><ellipse cx="0" cy="5" rx="9" ry="11" fill="#e8d4b0"/><circle cx="-6" cy="-7" r="6" fill="#fff"/><circle cx="6" cy="-7" r="6" fill="#fff"/><circle cx="-6" cy="-7" r="3" fill="#1a1a1a"/><circle cx="6" cy="-7" r="3" fill="#1a1a1a"/><path d="M-2 -2 L2 -2 L0 2Z" fill="#e8a23a"/><path d="M-13 -14 l4 6 M13 -14 l-4 6" stroke="#a07850" stroke-width="4" stroke-linecap="round"/>`,
+      katze: `<ellipse cx="0" cy="6" rx="14" ry="12" fill="#3a3a44"/><circle cx="0" cy="-8" r="11" fill="#3a3a44"/><path d="M-10 -12 L-8 -24 L-2 -16Z M10 -12 L8 -24 L2 -16Z" fill="#3a3a44"/><ellipse cx="-4" cy="-9" rx="2.5" ry="3.5" fill="#d8e85a"/><ellipse cx="4" cy="-9" rx="2.5" ry="3.5" fill="#d8e85a"/><path d="M14 10 C 24 6, 22 -6, 16 -8" stroke="#3a3a44" stroke-width="4" fill="none" stroke-linecap="round"/>`,
+      kroete: `<ellipse cx="0" cy="6" rx="16" ry="10" fill="#6f9a3a"/><circle cx="-7" cy="-3" r="5" fill="#6f9a3a"/><circle cx="7" cy="-3" r="5" fill="#6f9a3a"/><circle cx="-7" cy="-4" r="2.4" fill="#1a1a1a"/><circle cx="7" cy="-4" r="2.4" fill="#1a1a1a"/><path d="M-6 8 q6 4 12 0" stroke="#2a4a1a" stroke-width="1.6" fill="none"/>`,
+      drache: `<path d="M-8 -6 C -24 -20, -26 -2, -14 2Z M8 -6 C 24 -20, 26 -2, 14 2Z" fill="#c24a3a" opacity=".9"/><ellipse cx="0" cy="4" rx="11" ry="13" fill="#e2603e"/><circle cx="0" cy="-10" r="9" fill="#e2603e"/><path d="M-5 -17 l-2 -6 l5 3Z M5 -17 l2 -6 l-5 3Z" fill="#f3d27a"/><circle cx="-3.5" cy="-11" r="2" fill="#1a1a1a"/><circle cx="3.5" cy="-11" r="2" fill="#1a1a1a"/><ellipse cx="0" cy="8" rx="6" ry="7" fill="#f6c27a"/>`,
+    }[o.begleiter] || "";
+    const stabFarbe = { holz: "#7a4a24", knorrig: "#5a3a1c", silber: "#cfd6e0", kristall: "#bfe6ff" }[o.stab] || "#7a4a24";
+    const stab = `<g transform="rotate(-28 52 196)"><rect x="49" y="140" width="6" height="64" rx="3" fill="${stabFarbe}" stroke="rgba(0,0,0,.35)" stroke-width="1"/>
+       ${o.stab === "knorrig" ? '<circle cx="52" cy="160" r="4" fill="#5a3a1c"/><circle cx="52" cy="180" r="3.5" fill="#5a3a1c"/>' : ""}
+       ${o.stab === "kristall" ? '<path d="M52 128 l7 12 l-7 6 l-7 -6Z" fill="#bfe6ff" stroke="#6ab0e0"/>' : ""}
+       <g transform="translate(52 ${o.stab === "kristall" ? 126 : 138})"><g class="funke" fill="#fff3c4">${ZEICHEN_PFAD.stern}</g></g></g>`;
+    const zeichen = `<g transform="translate(100 196) scale(.9)" fill="${rang >= 2 ? "#ffe9a8" : hell(u1, 60)}" stroke="${hell(u2, -20)}" stroke-width=".8">${ZEICHEN_PFAD[o.zeichen] || ZEICHEN_PFAD.stern}</g>`;
+    const saum = rang >= 1 ? `<path d="M40 244 C 70 236, 130 236, 160 244" stroke="#d7b25a" stroke-width="${2 + rang}" fill="none"/>` : "";
+    const zz = stim === "schlaeft" ? `<text class="z" x="138" y="88">Z</text><text class="z" x="146" y="76" style="animation-delay:-1s;font-size:14px">z</text><text class="z" x="132" y="96" style="animation-delay:-2s;font-size:12px">z</text>` : "";
+    return `<defs><radialGradient id="${id}w" cx="40%" cy="35%"><stop offset="0" stop-color="${hell(haut, 18)}"/><stop offset="1" stop-color="${hell(haut, -14)}"/></radialGradient>
+      <linearGradient id="${id}u" x1="0" x2="1"><stop offset="0" stop-color="${hell(u1, -10)}"/><stop offset=".5" stop-color="${u1}"/><stop offset="1" stop-color="${hell(u1, -40)}"/></linearGradient></defs>
+      ${portrait ? "" : '<ellipse cx="100" cy="246" rx="62" ry="7" fill="rgba(0,0,0,.35)"/>'}
+      <g class="wippen">${langHinten}
+       <g class="umhang"><path d="M66 160 C 50 190, 40 220, 38 246 L162 246 C 160 220, 150 190, 134 160 Z" fill="url(#${id}u)"/>
+        <path d="M70 162 L100 246 L130 162" fill="${hell(u2, -10)}" opacity=".55"/>${saum}
+        <path d="M78 160 L100 180 L122 160" fill="#f1e3c2" stroke="${hell(u2, -20)}" stroke-width="1"/></g>
+       ${zeichen}<ellipse cx="60" cy="200" rx="9" ry="9" fill="${haut}"/>${portrait ? "" : stab}<ellipse cx="144" cy="196" rx="8.5" ry="8.5" fill="${haut}"/>
+       <g class="kopf">${haarHinten}
+        <ellipse cx="100" cy="126" rx="44" ry="42" fill="url(#${id}w)"/>
+        <ellipse cx="58" cy="130" rx="7" ry="9" fill="${hell(haut, -10)}"/><ellipse cx="142" cy="130" rx="7" ry="9" fill="${hell(haut, -10)}"/>
+        <ellipse cx="74" cy="142" rx="8" ry="5" fill="#ff8a8a" opacity="${stim === "froh" ? 0.55 : 0.3}"/><ellipse cx="126" cy="142" rx="8" ry="5" fill="#ff8a8a" opacity="${stim === "froh" ? 0.55 : 0.3}"/>
+        ${augen}${brauen}<path d="M98 136 q2 5 5 3" stroke="${hell(haut, -40)}" stroke-width="2" fill="none" stroke-linecap="round"/>${mund}
+        ${o.hut === "kapuze" ? "" : haarVorne}${hut}${o.brille ? '<g fill="none" stroke="#3a2a1a" stroke-width="2.4"><circle cx="82" cy="127" r="12"/><circle cx="118" cy="127" r="12"/><path d="M94 126 h12"/></g>' : ""}</g>
+      </g>${portrait ? "" : `<g transform="translate(152 210)"><g class="begleiter">${begleiter}</g></g>`}${zz}`;
+  }
+
+  function tierInhalt(o) {
+    const u1 = o.farbe, u2 = hell(o.farbe, -70);
+    const t = {
+      fuchs: `<g transform="translate(100 160)"><path d="M40 30 C 80 20, 90 -20, 70 -40 C 80 -10, 60 10, 34 14Z" fill="#e2702a"/><path d="M76 -36 C 82 -28, 82 -20, 78 -14 C 74 -22, 72 -30, 76 -36Z" fill="#fff"/>
+        <ellipse cx="10" cy="20" rx="44" ry="30" fill="#e2702a"/><ellipse cx="4" cy="30" rx="26" ry="18" fill="#fff3e0"/>
+        <path d="M-30 -20 L-46 -62 L-14 -36Z M10 -20 L22 -62 L-6 -36Z" fill="#e2702a"/><path d="M-30 -26 L-40 -52 L-20 -36Z M8 -26 L16 -52 L-2 -36Z" fill="#3a1a0a"/>
+        <ellipse cx="-12" cy="-14" rx="32" ry="28" fill="#e2702a"/><path d="M-44 -6 C -30 14, 4 18, 18 -4 C 4 4, -30 4, -44 -6Z" fill="#fff3e0"/>
+        <ellipse cx="-24" cy="-18" rx="4.5" ry="6" fill="#1a1a1a"/><ellipse cx="2" cy="-18" rx="4.5" ry="6" fill="#1a1a1a"/><circle cx="-22.5" cy="-20" r="1.6" fill="#fff"/><circle cx="3.5" cy="-20" r="1.6" fill="#fff"/>
+        <ellipse cx="-11" cy="-2" rx="5" ry="3.5" fill="#1a1a1a"/></g>`,
+      adler: `<g transform="translate(100 150)"><path d="M-10 0 C -60 -40, -96 -30, -100 -10 C -70 -16, -40 4, -14 20Z" fill="#6b4a2a"/><path d="M10 0 C 60 -40, 96 -30, 100 -10 C 70 -16, 40 4, 14 20Z" fill="#6b4a2a"/>
+        <path d="M-80 -22 l-6 12 M-64 -24 l-4 14 M80 -22 l6 12 M64 -24 l4 14" stroke="#4a3018" stroke-width="5" stroke-linecap="round"/>
+        <ellipse cx="0" cy="26" rx="26" ry="38" fill="#7a5530"/><path d="M-14 60 L0 80 L14 60Z" fill="#fff"/>
+        <circle cx="0" cy="-16" r="24" fill="#fff"/><path d="M8 -14 C 26 -14, 26 4, 12 2Z" fill="#f0b030"/><circle cx="-2" cy="-20" r="5" fill="#1a1a1a"/><circle cx="-1" cy="-22" r="1.6" fill="#fff"/></g>`,
+      wolf: `<g transform="translate(100 160)"><ellipse cx="10" cy="22" rx="46" ry="30" fill="#8a8f9a"/><path d="M50 20 C 80 10, 86 -10, 76 -24 C 72 -6, 60 4, 44 8Z" fill="#8a8f9a"/>
+        <path d="M-34 -20 L-40 -64 L-12 -36Z M6 -20 L16 -64 L-8 -36Z" fill="#8a8f9a"/><ellipse cx="-14" cy="-14" rx="32" ry="30" fill="#8a8f9a"/>
+        <path d="M-30 0 C -24 24, 0 24, 4 0 C -6 10, -20 10, -30 0Z" fill="#e8e8ee"/><ellipse cx="-13" cy="4" rx="7" ry="5" fill="#1a1a1a"/>
+        <ellipse cx="-26" cy="-18" rx="4.5" ry="5.5" fill="#f3c23a"/><ellipse cx="0" cy="-18" rx="4.5" ry="5.5" fill="#f3c23a"/><circle cx="-26" cy="-18" r="2.2" fill="#1a1a1a"/><circle cx="0" cy="-18" r="2.2" fill="#1a1a1a"/></g>`,
+      katze: `<g transform="translate(100 160)"><ellipse cx="10" cy="26" rx="40" ry="28" fill="#3a3a44"/><path d="M46 30 C 80 26, 82 -16, 64 -24 C 70 -4, 64 14, 44 16Z" fill="#3a3a44"/>
+        <path d="M-36 -16 L-34 -60 L-10 -34Z M8 -16 L14 -60 L-12 -34Z" fill="#3a3a44"/><circle cx="-12" cy="-10" r="32" fill="#3a3a44"/>
+        <ellipse cx="-24" cy="-14" rx="6" ry="8" fill="#d8e85a"/><ellipse cx="2" cy="-14" rx="6" ry="8" fill="#d8e85a"/><ellipse cx="-24" cy="-14" rx="2" ry="6" fill="#111"/><ellipse cx="2" cy="-14" rx="2" ry="6" fill="#111"/>
+        <path d="M-15 0 l4 0 l-2 3Z" fill="#e88aa0"/><path d="M-40 -2 h-18 M-40 4 h-16 M18 -2 h18 M18 4 h16" stroke="#ccc" stroke-width="1.2"/></g>`,
+    }[o.tier] || "";
+    return `<ellipse cx="100" cy="238" rx="70" ry="8" fill="rgba(0,0,0,.35)"/>${t}
+      <path d="M60 ${o.tier === "adler" ? 176 : 178} q40 18 80 0 l-6 10 q-34 14 -68 0Z" fill="${u1}" stroke="${u2}" stroke-width="1.5"/>`;
+  }
+
+  /** Fertiges <svg> der Figur. art: "ganz" | "kopf" | "tier" */
+  function figurSvg(o, art = "ganz", attr = "") {
+    if (art === "tier") return `<svg viewBox="0 0 200 250" ${attr}>${tierInhalt(o)}</svg>`;
+    const vb = art === "kopf" ? "34 30 132 132" : "-14 -14 228 270";
+    return `<svg class="fig ${esc(o.stimmung || "normal")}" viewBox="${vb}" ${attr}>${figurInhalt(o, art === "kopf")}</svg>`;
+  }
+
+  const FIGUR_CSS = `
+    .fig .wippen { animation: zf-wippen 2.6s ease-in-out infinite; transform-origin: 100px 240px; }
+    @keyframes zf-wippen { 50% { transform: translateY(-3px); } }
+    .fig.froh .wippen { animation: zf-huepfen 1.1s cubic-bezier(.3,1.6,.5,1) infinite; }
+    @keyframes zf-huepfen { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-9px) rotate(-1.5deg); } }
+    .fig .lid { transform-box: fill-box; transform-origin: center top; transform: scaleY(0); animation: zf-blinzeln 4.2s infinite; }
+    @keyframes zf-blinzeln { 0%, 92%, 100% { transform: scaleY(0); } 95% { transform: scaleY(1); } }
+    .fig.gaehnt .mund-g { transform-box: fill-box; transform-origin: center; animation: zf-gaehnen 3.4s ease-in-out infinite; }
+    @keyframes zf-gaehnen { 0%, 100% { transform: scale(.35); } 35%, 60% { transform: scale(1.1, 1.25); } }
+    .fig.gaehnt .kopf { animation: zf-zurueck 3.4s ease-in-out infinite; transform-origin: 100px 130px; }
+    @keyframes zf-zurueck { 35%, 60% { transform: rotate(-5deg) translateY(-2px); } }
+    .fig.schlaeft .kopf { transform: rotate(9deg); transform-origin: 100px 140px; }
+    .fig.schlaeft .wippen { animation: zf-atmen 3.6s ease-in-out infinite; }
+    @keyframes zf-atmen { 50% { transform: scale(1.015, 1.03); } }
+    .fig .z { font: 800 18px Cinzel, Georgia, serif; fill: #fff3c4; animation: zf-zett 3s linear infinite; opacity: 0; }
+    @keyframes zf-zett { 0% { opacity: 0; transform: translate(0, 0) scale(.6); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(22px, -46px) scale(1.3); } }
+    .fig .funke { animation: zf-funkeln 1.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+    @keyframes zf-funkeln { 50% { transform: scale(.4) rotate(45deg); opacity: .4; } }
+    .fig .begleiter { animation: zf-begleiter 3s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 100%; }
+    @keyframes zf-begleiter { 50% { transform: translateY(-2px) rotate(2deg); } }
+    .fig .umhang { animation: zf-wehen 3.2s ease-in-out infinite; transform-origin: 100px 150px; }
+    @keyframes zf-wehen { 50% { transform: skewX(-2deg); } }
+    @media (prefers-reduced-motion: reduce) { .fig * { animation: none !important; } }
+  `;
+
+  window.familienplaner = window.familienplaner || {};
+  window.familienplaner.figur = { von: figurVon, svg: figurSvg, css: FIGUR_CSS };
 
   // =================================================================== Kopf
   class Zauberkopf extends HTMLElement {
@@ -290,6 +546,9 @@
       const alt = this._hass;
       this._hass = h;
       const ids = this._c.personen.flatMap((p) => [p.person, p.sensor]).filter(Boolean);
+      const u = uebersicht(h);
+      const sig = JSON.stringify([u && u.figuren, new Date().getHours()]);
+      if (this._figSig !== sig) { this._figSig = sig; this._gebaut = false; }
       if (!this._gebaut) this._bauen();
       else if (!alt || ids.some((id) => alt.states[id] !== h.states[id])) this._aktualisieren();
     }
@@ -314,13 +573,15 @@
           <circle cx="${CX}" cy="${CY - L}" r="16.5" fill="url(#z-glanz)"/>
           <g class="aufrecht" style="transform-origin:${CX}px ${CY - L}px">
             <ellipse cx="${CX - 5}" cy="${CY - L - 7}" rx="7" ry="4" fill="#fff" opacity=".45"/>
-            <text x="${CX}" y="${CY - L + 6.5}" text-anchor="middle" font-family="Cinzel, Georgia, serif" font-weight="800" font-size="18" fill="#fff" stroke="rgba(0,0,0,.35)" stroke-width="1.2" style="paint-order:stroke">${n}</text>
+            ${this._c.figuren !== false
+              ? `<clipPath id="z-medclip${i}"><circle cx="${CX}" cy="${CY - L}" r="16"/></clipPath><g clip-path="url(#z-medclip${i})"><svg x="${CX - 16}" y="${CY - L - 16}" width="32" height="32" viewBox="34 30 132 132">${figurInhalt(figurVon(this._hass, p), true)}</svg></g>`
+              : `<text x="${CX}" y="${CY - L + 6.5}" text-anchor="middle" font-family="Cinzel, Georgia, serif" font-weight="800" font-size="18" fill="#fff" stroke="rgba(0,0,0,.35)" stroke-width="1.2" style="paint-order:stroke">${n}</text>`}
           </g></g></g>`;
       };
       const schilder = this._c.schilder ? `<div class="schilder">${this._c.personen.map((p, i) => `<div class="schild" data-i="${i}" data-person="${esc(p.person || "")}">
-          <div class="med" style="--c:${esc(p.farbe || "#8C7B6B")}">${esc((p.name || "?").slice(0, 1).toUpperCase())}</div>
+          <div class="med" style="--c:${esc(p.farbe || "#8C7B6B")}">${this._c.figuren !== false ? figurSvg(figurVon(this._hass, p), "kopf") : esc((p.name || "?").slice(0, 1).toUpperCase())}</div>
           <div class="n"></div><div class="s"></div></div>`).join("")}</div>` : "";
-      this.shadowRoot.innerHTML = `<style>${BASIS}
+      this.shadowRoot.innerHTML = `<style>${BASIS}${FIGUR_CSS}
         .uhr { position: relative; width: 100%; max-width: 560px; margin: 0 auto; aspect-ratio: 490 / 560; }
         .uhr svg { width: 100%; height: 100%; overflow: visible; display: block; }
         .hand { transition: transform 2.6s cubic-bezier(.34, 1.56, .64, 1); }
@@ -335,6 +596,7 @@
         @keyframes z-aufleuchten { 40% { filter: brightness(1.5) drop-shadow(0 0 12px #ffd98a); } }
         .med { position: absolute; left: 19px; top: 13px; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font: 700 15px Cinzel, Georgia, serif; color: #fff;
           background: radial-gradient(circle at 35% 30%, rgba(255,255,255,.55), transparent 40%), var(--c); box-shadow: 0 0 0 2px #f3d27a, 0 0 0 3px #6b4a14, 0 2px 3px rgba(0,0,0,.5); text-shadow: 0 1px 1px rgba(0,0,0,.5); }
+        .med svg { width: 100%; height: 100%; border-radius: 50%; display: block; }
         .n { font: 700 14px Cinzel, Georgia, serif; letter-spacing: .1em; color: #3a2608; text-shadow: 0 1px 0 rgba(255,245,200,.7), 0 -1px 0 rgba(0,0,0,.25); }
         .s { font: italic 600 15px 'Cormorant Garamond', Georgia, serif; color: #3a2608; text-shadow: 0 1px 0 rgba(255,245,200,.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       </style>
@@ -405,7 +667,11 @@
       const alt = this._hass;
       this._hass = h;
       const ids = this._c.personen.map((p) => p.person).filter(Boolean);
-      if (!alt || ids.some((id) => alt.states[id] !== h.states[id])) this._zeichnen();
+      const u = uebersicht(h);
+      const sig = JSON.stringify([u && u.figuren, new Date().getHours()]);
+      const neu = this._figSig !== sig;
+      this._figSig = sig;
+      if (!alt || neu || ids.some((id) => alt.states[id] !== h.states[id])) this._zeichnen();
     }
     getCardSize() { return 8; }
     _zeichnen() {
@@ -437,7 +703,11 @@
         const [x, y] = KARTEN_ORTE[l.index];
         const gleiche = lage.slice(0, i).filter((x2) => x2.index === l.index).length;
         const ny = l.index === 0 ? y + 78 + gleiche * 24 : y - 62 - gleiche * 24;
-        return `<text x="${x + (l.index === 0 ? 70 : 0)}" y="${ny}" text-anchor="middle" fill="${esc(p.farbe || "#3b2414")}">${esc(p.name)}</text>`;
+        const tx0 = x + (l.index === 0 ? 70 : 0);
+        const kopf = this._c.figuren !== false
+          ? `<clipPath id="z-kk${i}"><circle cx="${tx0 - 8}" cy="${ny - 44}" r="19"/></clipPath><circle cx="${tx0 - 8}" cy="${ny - 44}" r="21" fill="${esc(p.farbe || "#3b2414")}" stroke="#3b2414" stroke-width="1.2"/><g clip-path="url(#z-kk${i})"><svg x="${tx0 - 27}" y="${ny - 63}" width="38" height="38" viewBox="34 30 132 132">${figurInhalt(figurVon(h, p), true)}</svg></g>`
+          : "";
+        return `${kopf}<text x="${tx0}" y="${ny}" text-anchor="middle" fill="${esc(p.farbe || "#3b2414")}">${esc(p.name)}</text>`;
       }).join("");
       const besucht = new Set(lage.map((l) => l.index));
       const ortBilder = [0, 1, 2, 3, 4, 5].filter((i) => i !== 5 || besucht.has(5)).map((i) => {
@@ -447,7 +717,7 @@
           <text y="${i === 0 ? 24 : i === 3 ? 46 : 36}" text-anchor="middle" font-family="Cinzel, Georgia, serif" font-weight="700" font-size="14" letter-spacing="1.5" fill="#3b2414">${esc(String(name).toUpperCase())}</text></g>`;
       }).join("");
       const baeume = [[40, 300], [62, 318], [88, 302], [52, 344], [80, 350], [106, 336], [585, 470], [612, 456], [640, 478]].map(([x, y]) => `<use href="#z-baum" x="${x}" y="${y}"/>`).join("");
-      this.shadowRoot.innerHTML = `<style>${BASIS}
+      this.shadowRoot.innerHTML = `<style>${BASIS}${FIGUR_CSS}
         .karte { position: relative; width: 100%; max-width: 760px; margin: 0 auto; aspect-ratio: 690 / 640; filter: drop-shadow(0 22px 22px rgba(0,0,0,.6)) drop-shadow(0 4px 4px rgba(0,0,0,.5)); transform: rotate(-.6deg); }
         svg { width: 100%; height: 100%; overflow: visible; display: block; }
         .namen { font-family: Caveat, 'Comic Sans MS', cursive; font-weight: 600; font-size: 26px; }
@@ -559,13 +829,17 @@
     .tagblock.heute .initial { box-shadow: 0 0 0 1.5px #b8862e, 0 0 0 3px #f3d27a, 0 0 0 4px #7a5214, 0 0 22px 6px rgba(255,210,110,.75), inset 0 0 10px rgba(0,0,0,.45); }
     .kranz { position: absolute; left: -17px; top: -17px; width: 88px; height: 88px; pointer-events: none; animation: z-dreh 14s linear infinite; }
     @keyframes z-dreh { to { transform: rotate(360deg); } }
-    .eintrag { display: grid; grid-template-columns: 46px 14px 1fr; align-items: center; column-gap: 8px; margin-top: 2px; cursor: pointer; border-radius: 4px; padding: 1px 4px; margin-left: -4px; }
+    .eintrag { display: grid; grid-template-columns: 46px 30px 1fr; align-items: center; column-gap: 8px; margin-top: 2px; cursor: pointer; border-radius: 4px; padding: 1px 4px; margin-left: -4px; }
     .eintrag:hover { background: rgba(255,240,200,.45); }
     .eintrag .z { font: 600 13px Cinzel, Georgia, serif; color: #7a5232; }
     .eintrag .t { font: italic 600 clamp(17px, 1.7vw, 21px)/1.25 'Cormorant Garamond', Georgia, serif; color: var(--z-tinte); min-width: 0; }
     .eintrag .t em { font: 600 16px Caveat, cursive; color: #7a5232; font-style: normal; margin-left: 6px; }
     .eintrag.vorbei { opacity: .55; }
-    .tropfen { width: 12px; height: 12px; border-radius: 50% 50% 50% 50%/60% 60% 40% 40%; background: radial-gradient(circle at 35% 30%, rgba(255,255,255,.6), transparent 40%), var(--f);
+    .kopfbild { width: 30px; height: 30px; border-radius: 50%; overflow: hidden; display: block; justify-self: center;
+      background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--f) 45%, #fff), var(--f)); box-shadow: 0 0 0 1.5px #c9a24a, 0 2px 4px rgba(0,0,0,.35); }
+    .kopfbild svg { width: 100%; height: 100%; display: block; }
+    .eintrag.vorbei .kopfbild { filter: grayscale(.6) opacity(.7); }
+    .tropfen { justify-self: center; width: 12px; height: 12px; border-radius: 50% 50% 50% 50%/60% 60% 40% 40%; background: radial-gradient(circle at 35% 30%, rgba(255,255,255,.6), transparent 40%), var(--f);
       box-shadow: 0 1px 1.5px rgba(0,0,0,.45), inset 0 -1px 2px rgba(0,0,0,.35); display: inline-block; }
     .leer { font: italic 600 16px 'Cormorant Garamond', Georgia, serif; color: rgba(90,52,24,.55); margin-top: 2px; }
     .schreibt .t { animation: z-schreib 2.6s steps(36) both; }
@@ -642,8 +916,12 @@
         const vorbei = t.ende < jetzt ? "vorbei" : "";
         const neu = neuIds.has(this._id(t)) ? "schreibt" : "";
         const extra = [t.ort, t.fahrer ? `🚗 ${t.fahrer}` : ""].filter(Boolean).join(" · ");
+        const k = (this._config.kalender || []).find((x) => x.entity === t.kal);
+        const kopf = k && k.slug && k.slug !== "familie" && this._config.figuren !== false
+          ? `<span class="kopfbild" style="--f:${kesc(t.farbe)}">${figurSvg(figurVon(this._hass, { slug: k.slug, name: k.name, farbe: k.farbe }), "kopf")}</span>`
+          : '<span class="tropfen"></span>';
         return `<div class="eintrag termin ${vorbei} ${neu}" data-id="${kesc(this._id(t))}" style="--f:${kesc(t.farbe)}">
-          <span class="z">${t.ganz ? "✦" : hhmm(t.start)}</span><span class="tropfen"></span>
+          <span class="z">${t.ganz ? "✦" : hhmm(t.start)}</span>${kopf}
           <span class="t">${sym(t.titel)} ${kesc(t.titel)}${extra ? `<em>– ${kesc(extra)}</em>` : ""}${naechster === t ? `<span class="irrlicht">${kesc(tx(this._hass).gleich)}</span>` : ""}</span></div>`;
       }
       _tagBlock(d, i, termine, jetzt, neuIds, naechster) {
@@ -727,13 +1005,13 @@
         const aktiv = (window.familienplaner && window.familienplaner.person) || "familie";
         const siegel = this._config.folge_person !== false && pers.length ? `<div class="siegelreihe">
           <button class="sp ${aktiv === "familie" ? "an" : ""}" data-siegel="familie"><span class="siegel" style="--c:#7a5a2a">✦</span><small>${kesc(t.alle)}</small></button>
-          ${pers.map((k) => `<button class="sp ${aktiv === k.slug ? "an" : ""}" data-siegel="${kesc(k.slug)}"><span class="siegel" style="--c:${kesc(k.farbe || "#8C7B6B")}">${kesc((k.name || "?").slice(0, 1).toUpperCase())}</span><small>${kesc(k.name)}</small></button>`).join("")}
+          ${pers.map((k) => `<button class="sp ${aktiv === k.slug ? "an" : ""}" data-siegel="${kesc(k.slug)}"><span class="siegel" style="--c:${kesc(k.farbe || "#8C7B6B")}">${this._config.figuren !== false ? `<span class="siegelkopf">${figurSvg(figurVon(this._hass, { slug: k.slug, name: k.name, farbe: k.farbe }), "kopf")}</span>` : kesc((k.name || "?").slice(0, 1).toUpperCase())}</span><small>${kesc(k.name)}</small></button>`).join("")}
           <button class="sp eintragen"><span class="siegel" style="--c:#2a2a48">✒</span><small>${kesc(t.eintragen)}</small></button></div>`
           : `<div class="werkzeug"><button class="knopf eintragen">✒ ${kesc(t.eintragen)}</button></div>`;
         const ub = this._umblaettern && zwei ? this._umblaettern : null;
         this._umblaettern = null;
         const blatt = ub ? `<div class="blatt ${ub.richtung > 0 ? "vor" : "zurueck"}"><div class="vs">${ub.vorne}</div><div class="rs"></div></div>` : "";
-        this.shadowRoot.innerHTML = `<style>${BASIS}${SIEGEL_CSS}${Basis.CSS}${BUCH_CSS}</style>
+        this.shadowRoot.innerHTML = `<style>${BASIS}${SIEGEL_CSS}${Basis.CSS}${BUCH_CSS}${FIGUR_CSS}</style>
           <ha-card><div class="buchrahmen">
             <div class="buch">
               <div class="baender">${ansichten}</div>
@@ -980,14 +1258,221 @@
     }
   }
 
+  // ===================================================== Figuren-Galerie & Werkstatt
+  class Figuren extends HTMLElement {
+    setConfig(c) {
+      this._c = { personen: [], ...(c || {}) };
+      if (!this.shadowRoot) this.attachShadow({ mode: "open" });
+      this._sig = "";
+    }
+    set hass(h) {
+      this._hass = h;
+      const u = uebersicht(h);
+      const r = rennenVon(h);
+      const sig = JSON.stringify([u && u.figuren, r && (r.fahrer || []).map((f) => [f.slug, f.gesamt, f.woche]), new Date().getHours()]);
+      if (sig !== this._sig) { this._sig = sig; this._zeichnen(); }
+    }
+    connectedCallback() { this._t = setInterval(() => { this._sig = ""; if (this._hass) this.hass = this._hass; }, 10 * 60000); }
+    disconnectedCallback() { clearInterval(this._t); }
+    getCardSize() { return 9; }
+    _personen() { return (this._c.personen || []).map((p) => ({ ...p, fig: figurVon(this._hass, p) })); }
+    _zeichnen() {
+      if (!this._hass || !this.shadowRoot) return;
+      const t = ft(this._hass);
+      const tz = tx(this._hass);
+      const leute = this._personen();
+      const haus = HAUSNAMEN[de(this._hass) ? "de" : "en"];
+      const karten = leute.map((p, i) => {
+        const f = p.fig;
+        const naechste = RAENGE[f.rang + 1];
+        const anteil = naechste ? Math.min(1, (f.punkte - RAENGE[f.rang]) / (naechste - RAENGE[f.rang])) : 1;
+        return `<div class="portrait">
+          <button class="rahmen" data-i="${i}" title="${esc(t.verwandeln)}"><div class="innen" style="--hell:${hell(f.farbe, 70)};--dunkel:${hell(f.farbe, -95)}">
+            <div class="a">${figurSvg(f)}</div><div class="b">${figurSvg(f, "tier")}</div>
+            <svg class="rauch" viewBox="0 0 200 250"><g fill="#efe6ff" opacity=".9" style="filter:blur(4px)"><circle cx="80" cy="150" r="34"/><circle cx="120" cy="140" r="38"/><circle cx="100" cy="110" r="30"/><circle cx="70" cy="190" r="26"/><circle cx="132" cy="188" r="28"/></g>
+            <g fill="#fff3c4">${[...Array(10)].map((_, k) => `<circle cx="${30 + k * 15}" cy="${70 + ((k * 37) % 140)}" r="${1.5 + (k % 3)}"/>`).join("")}</g></svg>
+          </div></button>
+          <div class="name">${esc(p.name)}</div>
+          <div class="rang">${esc(t.raenge[f.rang])} · ${esc(tz.haus)} ${esc((this._c.haeuser && this._c.haeuser[p.slug] && this._c.haeuser[p.slug].name) || haus[i % haus.length])}</div>
+          <div class="fortschritt" title="${f.punkte} ${esc(t.punkte)}"><div style="width:${(anteil * 100).toFixed(0)}%;background:${f.farbe}"></div></div>
+          <div class="klein">${f.punkte} ${esc(t.punkte)}${naechste ? ` · ${esc(t.noch)} ${naechste - f.punkte} ${esc(t.bis)} ${esc(t.raenge[f.rang + 1])}` : " ✦"}</div>
+          <span class="stimmung">${esc(t.stimmung[f.stimmung] || "")}</span>
+          <button class="gestalten" data-slug="${esc(p.slug)}">✎ ${esc(t.gestalten)}</button>
+        </div>`;
+      }).join("");
+      this.shadowRoot.innerHTML = `<style>${BASIS}${FIGUR_CSS}
+        ha-card { padding: 4px 0 18px; background: transparent; box-shadow: none; border: 0; }
+        h2 { margin: 6px 0 0; text-align: center; font: 800 clamp(22px, 3vw, 32px) 'Cinzel Decorative', Cinzel, Georgia, serif; }
+        .unter { text-align: center; color: #e9d3a0; font: italic 600 17px 'Cormorant Garamond', Georgia, serif; margin: 2px 0 18px; }
+        .reihe { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 20px; padding: 0 8px; }
+        .portrait { text-align: center; color: #f3dfa6; }
+        .rahmen { all: unset; display: block; box-sizing: border-box; width: 100%; cursor: pointer; border-radius: 50% 50% 12px 12px / 38% 38% 12px 12px; padding: 9px;
+          background: linear-gradient(180deg, #fff3c4, #c9a24a 30%, #7a5214 60%, #e9c46a); box-shadow: 0 14px 26px rgba(0,0,0,.6); }
+        .innen { position: relative; border-radius: 50% 50% 8px 8px / 36% 36% 8px 8px; overflow: hidden; aspect-ratio: 200 / 250;
+          background: radial-gradient(ellipse at 50% 30%, var(--hell), var(--dunkel)); }
+        .innen svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+        .a, .b { position: absolute; inset: 0; transition: opacity .35s, transform .35s; }
+        .b { opacity: 0; transform: scale(.6); }
+        .rauch { opacity: 0; pointer-events: none; }
+        .verwandelt .a { opacity: 0; transform: scale(.6); } .verwandelt .b { opacity: 1; transform: scale(1); }
+        .puff .rauch { animation: zf-rauch 1s ease-out; }
+        @keyframes zf-rauch { 0% { opacity: 0; transform: scale(.4); } 30% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.5); } }
+        .name { font: 800 20px Cinzel, Georgia, serif; letter-spacing: .08em; margin-top: 10px; }
+        .rang { font: italic 600 16px 'Cormorant Garamond', Georgia, serif; color: #e9d3a0; }
+        .fortschritt { height: 8px; margin: 6px auto 2px; max-width: 180px; border-radius: 4px; background: rgba(255,255,255,.12); box-shadow: 0 0 0 1px #8a6a24; overflow: hidden; }
+        .fortschritt div { height: 100%; box-shadow: 0 0 8px rgba(255,220,140,.6); }
+        .klein { font: 600 13px 'Cormorant Garamond', Georgia, serif; color: #d9c08a; }
+        .stimmung { display: inline-block; margin-top: 6px; font: 600 11px Cinzel, Georgia, serif; letter-spacing: .1em; color: #3a2608; background: linear-gradient(180deg, #fff3c4, #d7b25a); border-radius: 999px; padding: 3px 9px; }
+        .gestalten, .knopf { display: inline-block; margin: 8px 4px 0; border: 0; border-radius: 999px; padding: 7px 14px; cursor: pointer; font: 700 12px Cinzel, Georgia, serif; letter-spacing: .08em; color: #3a2608;
+          background: linear-gradient(180deg, rgba(255,255,255,.4), transparent 45%, rgba(0,0,0,.15)), var(--z-messing); box-shadow: 0 0 0 1px #5a3f10, 0 3px 6px rgba(0,0,0,.45); }
+        .werkstatt { display: grid; grid-template-columns: minmax(200px, 300px) 1fr; gap: 22px; margin: 22px 8px 0; padding: 20px; }
+        @media (max-width: 700px) { .werkstatt { grid-template-columns: 1fr; } .werkstatt .vor { max-width: 240px; margin: 0 auto; } }
+        .werkstatt h3 { grid-column: 1 / -1; margin: 0; text-align: center; font: 800 20px Cinzel, Georgia, serif; color: #5a3a1a; }
+        .gruppe h4 { margin: 10px 0 5px; font: 800 13px Cinzel, Georgia, serif; letter-spacing: .12em; color: #5a3a1a; }
+        .chips { display: flex; flex-wrap: wrap; gap: 7px; }
+        .chip { border: 1px solid #8a6a44; border-radius: 999px; padding: 5px 11px; font: 600 15px 'Cormorant Garamond', Georgia, serif; background: rgba(255,255,255,.35); cursor: pointer; color: var(--z-tinte); }
+        .chip.an { background: linear-gradient(180deg, #fff3c4, #d7b25a); border-color: #7a5214; box-shadow: 0 0 0 2px rgba(201,162,74,.35); }
+        .chip:disabled { opacity: .45; cursor: not-allowed; }
+        .punkt { width: 28px; height: 28px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px #7a5214; cursor: pointer; padding: 0; }
+        .punkt.an { box-shadow: 0 0 0 3px #d7b25a, 0 0 0 4px #7a5214; }
+        .aktionen { grid-column: 1 / -1; text-align: center; }
+        .hinweis { font: 500 19px Caveat, cursive; color: #5b2a86; text-align: center; margin-top: 6px; }
+      </style><ha-card>
+        <h2 class="gold">${esc(t.titel)}</h2><div class="unter">${esc(t.unter)}</div>
+        <div class="reihe">${karten}</div>
+        ${this._bearbeiten ? this._werkstatt() : ""}
+        ${staub(18)}
+      </ha-card>`;
+      const root = this.shadowRoot;
+      root.querySelectorAll(".rahmen").forEach((b) => b.addEventListener("click", () => {
+        const innen = b.querySelector(".innen");
+        innen.classList.remove("puff"); void innen.offsetWidth; innen.classList.add("puff");
+        setTimeout(() => innen.classList.toggle("verwandelt"), 280);
+        clearTimeout(b._zurueck);
+        b._zurueck = setTimeout(() => { innen.classList.remove("puff"); void innen.offsetWidth; innen.classList.add("puff"); setTimeout(() => innen.classList.remove("verwandelt"), 280); }, 6000);
+      }));
+      root.querySelectorAll(".gestalten").forEach((b) => b.addEventListener("click", () => {
+        const p = leute.find((x) => x.slug === b.dataset.slug);
+        const { farbe, name, slug, punkte, rang, stimmung, ...aussehen } = p.fig;
+        this._bearbeiten = { slug: p.slug, name: p.name, farbe, rang, entwurf: { ...aussehen }, vorschau: "normal" };
+        this._zeichnen();
+        const w = root.querySelector(".werkstatt");
+        if (w) w.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }));
+      this._werkstattVerbinden();
+    }
+    _werkstatt() {
+      const t = ft(this._hass);
+      const b = this._bearbeiten;
+      const o = { ...b.entwurf, farbe: b.farbe, rang: b.rang, stimmung: b.vorschau };
+      const farben = (k, liste) => `<div class="gruppe"><h4>${esc(t.gruppen[k])}</h4><div class="chips">${liste.map((f) =>
+        `<button class="punkt ${o[k] === f ? "an" : ""}" data-k="${k}" data-v="${f}" style="background:${f}" aria-label="${f}"></button>`).join("")}</div></div>`;
+      const wahl = (k) => `<div class="gruppe"><h4>${esc(t.gruppen[k])}</h4><div class="chips">${FIG_WAHL[k].map((v) => {
+        const ab = FREI_AB[`${k}:${v}`] || 0;
+        const zu = b.rang < ab;
+        return `<button class="chip ${o[k] === v ? "an" : ""}" data-k="${k}" data-v="${v}" ${zu ? `disabled title="${esc(t.gesperrt)} ${esc(t.raenge[ab])}"` : ""}>${zu ? "🔒 " : ab ? "✦ " : ""}${esc(t.werte[k][v])}</button>`;
+      }).join("")}</div></div>`;
+      const stimmungen = `<div class="gruppe"><h4>${esc(de(this._hass) ? "Stimmung (Vorschau)" : "Mood (preview)")}</h4><div class="chips">${["normal", "froh", "gaehnt", "schlaeft"].map((s) =>
+        `<button class="chip ${b.vorschau === s ? "an" : ""}" data-vorschau="${s}">${esc(t.stimmung[s])}</button>`).join("")}</div></div>`;
+      return `<div class="werkstatt pergament">
+        <h3>${esc(t.werkstatt)} · ${esc(b.name)}</h3>
+        <div class="vor"><div class="rahmen" style="cursor:default"><div class="innen" style="--hell:${hell(b.farbe, 70)};--dunkel:${hell(b.farbe, -95)}">${figurSvg(o)}</div></div>
+          <div class="hinweis">${esc(t.gruppen.tier)}: ${esc(t.werte.tier[o.tier])}</div>
+          <div style="max-width:140px;margin:6px auto 0;aspect-ratio:200/250;position:relative">${figurSvg(o, "tier", 'style="width:100%;height:100%"')}</div></div>
+        <div>${farben("haut", HAUT)}${farben("haar", HAARE)}${farben("augen", AUGEN)}${wahl("frisur")}${wahl("hut")}${wahl("stab")}${wahl("zeichen")}${wahl("begleiter")}${wahl("tier")}
+          <div class="gruppe"><h4>${esc(t.gruppen.brille)}</h4><div class="chips"><button class="chip ${!o.brille ? "an" : ""}" data-k="brille" data-v="false">${esc(t.ohne)}</button><button class="chip ${o.brille ? "an" : ""}" data-k="brille" data-v="true">${esc(t.rund)}</button></div></div>
+          ${stimmungen}</div>
+        <div class="aktionen"><button class="knopf speichern">✦ ${esc(t.speichern)}</button><button class="knopf abbrechen">${esc(t.abbrechen)}</button>
+          ${b.fehler ? `<div class="hinweis" style="color:#a02020">${esc(b.fehler)}</div>` : ""}</div>
+      </div>`;
+    }
+    _werkstattVerbinden() {
+      const root = this.shadowRoot;
+      const b = this._bearbeiten;
+      if (!b) return;
+      root.querySelectorAll(".werkstatt [data-k]").forEach((el) => el.addEventListener("click", () => {
+        let v = el.dataset.v;
+        if (v === "true") v = true; else if (v === "false") v = false;
+        b.entwurf[el.dataset.k] = v;
+        this._zeichnen();
+      }));
+      root.querySelectorAll(".werkstatt [data-vorschau]").forEach((el) => el.addEventListener("click", () => { b.vorschau = el.dataset.vorschau; this._zeichnen(); }));
+      const ab = root.querySelector(".werkstatt .abbrechen");
+      if (ab) ab.addEventListener("click", () => { this._bearbeiten = null; this._zeichnen(); });
+      const sp = root.querySelector(".werkstatt .speichern");
+      if (sp) sp.addEventListener("click", async () => {
+        const daten = { person: b.slug };
+        for (const k of ["haut", "haar", "augen", ...Object.keys(FIG_WAHL), "brille"]) if (b.entwurf[k] !== undefined) daten[k] = b.entwurf[k];
+        try {
+          await this._hass.callService("familienplaner", "figur_setzen", daten);
+          this._bearbeiten = null;
+          this._sig = "";
+          this._zeichnen();
+        } catch (e) {
+          b.fehler = (e && e.message) || String(e);
+          this._zeichnen();
+        }
+      });
+    }
+  }
+
+  // ================================================ Zauberrahmen für normale Karten
+  // Legt eine beliebige Karte (Aufgabenliste, Überschrift, Kalender, Rennstrecke …) auf
+  // Pergament mit Goldrand, damit auch die übrigen Seiten im Stil Zauberwelt erscheinen.
+  let kartenHelfer = null;
+  class Zauberrahmen extends HTMLElement {
+    setConfig(c) {
+      if (!c || !c.karte) throw new Error("karte fehlt");
+      this._c = c;
+      if (!this.shadowRoot) this.attachShadow({ mode: "open" });
+      this._kind = null;
+      this._bauen();
+    }
+    set hass(h) { this._hass = h; if (this._kind) this._kind.hass = h; }
+    getCardSize() { return this._kind && this._kind.getCardSize ? this._kind.getCardSize() : 3; }
+    getGridOptions() { return this._kind && this._kind.getGridOptions ? this._kind.getGridOptions() : { columns: 12 }; }
+    async _bauen() {
+      const k = this._c.karte;
+      const ueberschrift = k.type === "heading";
+      const ohneRahmen = ueberschrift || this._c.rahmen === false;
+      this.shadowRoot.innerHTML = `<style>${BASIS}
+        :host { display: block;
+          --primary-text-color: ${ueberschrift ? "#f3dfa6" : "#3b2a1a"}; --secondary-text-color: ${ueberschrift ? "#d9c08a" : "#6b4f33"};
+          --primary-color: #8a5a1c; --accent-color: #b3262b; --state-icon-color: #7a5214; --divider-color: rgba(122,82,20,.35);
+          --ha-card-background: transparent; --card-background-color: transparent; --ha-card-box-shadow: none; --ha-card-border-width: 0;
+          --mdc-theme-primary: #8a5a1c; --mdc-checkbox-unchecked-color: #7a5214; --input-fill-color: rgba(255,255,255,.35);
+          --ha-font-family-body: 'Cormorant Garamond', Georgia, serif; --mdc-typography-font-family: 'Cormorant Garamond', Georgia, serif;
+          --ha-font-size-m: 17px; --paper-font-body1_-_font-family: 'Cormorant Garamond', Georgia, serif;
+          --ha-card-header-font-family: Cinzel, Georgia, serif; --ha-card-header-color: #5a3a1a; }
+        .blatt { position: relative; padding: 4px; border-radius: 6px; font-family: 'Cormorant Garamond', Georgia, serif; }
+        .blatt.mit { box-shadow: 0 14px 30px rgba(0,0,0,.55), inset 0 0 50px rgba(120,80,30,.35), 0 0 0 1px #8a6a24, 0 0 0 4px rgba(215,178,90,.55), 0 0 0 5px #5a3f10; }
+        .blatt.mit::before, .blatt.mit::after { content: "✦"; position: absolute; top: 4px; color: #a07a2a; font-size: 13px; }
+        .blatt.mit::before { left: 8px; } .blatt.mit::after { right: 8px; }
+        .ueber { padding: 6px 2px 0; }
+      </style><div class="blatt ${ohneRahmen ? (ueberschrift ? "ueber" : "") : "mit pergament"}"></div>`;
+      try {
+        if (!kartenHelfer) kartenHelfer = await window.loadCardHelpers();
+        const el = kartenHelfer.createCardElement(k);
+        el.addEventListener("ll-rebuild", (e) => { e.stopPropagation(); this._bauen(); });
+        if (this._hass) el.hass = this._hass;
+        this._kind = el;
+        this.shadowRoot.querySelector(".blatt").appendChild(el);
+      } catch (e) {
+        this.shadowRoot.querySelector(".blatt").textContent = String(e);
+      }
+    }
+  }
+
   const def = (n, k) => { if (!customElements.get(n)) customElements.define(n, k); };
   def("familienplaner-zauberkopf", Zauberkopf);
   def("familienplaner-zauberuhr", Zauberuhr);
   def("familienplaner-zauberkarte", Zauberkarte);
   def("familienplaner-haeuser", Haeuser);
   def("familienplaner-kessel", Kessel);
+  def("familienplaner-figuren", Figuren);
+  def("familienplaner-zauberrahmen", Zauberrahmen);
   window.customCards = window.customCards || [];
-  for (const [type, name] of [["familienplaner-zauberuhr", "Familienplaner: Familienuhr"], ["familienplaner-zauberkarte", "Familienplaner: Familienkarte"], ["familienplaner-zauberbuch", "Familienplaner: Zauberbuch"], ["familienplaner-haeuser", "Familienplaner: Häuser"], ["familienplaner-kessel", "Familienplaner: Familienkessel"]]) {
+  for (const [type, name] of [["familienplaner-zauberuhr", "Familienplaner: Familienuhr"], ["familienplaner-zauberkarte", "Familienplaner: Familienkarte"], ["familienplaner-zauberbuch", "Familienplaner: Zauberbuch"], ["familienplaner-haeuser", "Familienplaner: Häuser"], ["familienplaner-kessel", "Familienplaner: Familienkessel"], ["familienplaner-figuren", "Familienplaner: Zauberer-Figuren"]]) {
     if (!window.customCards.some((c) => c.type === type)) window.customCards.push({ type, name, description: "Stil Zauberwelt" });
   }
 })();

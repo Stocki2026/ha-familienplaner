@@ -349,6 +349,56 @@
           "description": "Latest time of day."
         }
       }
+    },
+    "figur_setzen": {
+      "name": "Set wizard figure",
+      "description": "Saves the look of a person's wizard figure (magic world style).",
+      "fields": {
+        "person": {
+          "name": "Person",
+          "description": "Person key."
+        },
+        "haut": {
+          "name": "Skin tone",
+          "description": "Colour as #rrggbb."
+        },
+        "haar": {
+          "name": "Hair colour",
+          "description": "Colour as #rrggbb."
+        },
+        "augen": {
+          "name": "Eye colour",
+          "description": "Colour as #rrggbb."
+        },
+        "frisur": {
+          "name": "Hairstyle",
+          "description": "Hairstyle"
+        },
+        "hut": {
+          "name": "Headwear",
+          "description": "Headwear"
+        },
+        "stab": {
+          "name": "Wand",
+          "description": "Wand"
+        },
+        "zeichen": {
+          "name": "Sign",
+          "description": "Sign"
+        },
+        "begleiter": {
+          "name": "Companion",
+          "description": "Companion"
+        },
+        "tier": {
+          "name": "Animal form",
+          "description": "Animal the figure turns into."
+        },
+        "brille": {
+          "name": "Glasses",
+          "description": "Glasses"
+        }
+      }
     }
   },
   "entity": {

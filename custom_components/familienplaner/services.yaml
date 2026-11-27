@@ -243,3 +243,73 @@ katalog_festlegen:
       example: '[{"titel": "🧹 Staubsaugen", "punkte": 25, "bereich": "putzen"}]'
       selector:
         object:
+
+figur_setzen:
+  fields:
+    person:
+      required: true
+      example: anna
+      selector:
+        text:
+    haut:
+      example: "#f5c8a0"
+      selector:
+        text:
+    haar:
+      example: "#f5c8a0"
+      selector:
+        text:
+    augen:
+      example: "#f5c8a0"
+      selector:
+        text:
+    frisur:
+      selector:
+        select:
+          options:
+            - kurz
+            - lang
+            - locken
+            - zopf
+    hut:
+      selector:
+        select:
+          options:
+            - spitz
+            - kapuze
+            - krone
+    stab:
+      selector:
+        select:
+          options:
+            - holz
+            - knorrig
+            - silber
+            - kristall
+    zeichen:
+      selector:
+        select:
+          options:
+            - stern
+            - mond
+            - flamme
+            - blatt
+    begleiter:
+      selector:
+        select:
+          options:
+            - eule
+            - katze
+            - kroete
+            - drache
+    tier:
+      selector:
+        select:
+          options:
+            - fuchs
+            - katze
+            - wolf
+            - adler
+    brille:
+      selector:
+        boolean:

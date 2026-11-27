@@ -272,7 +272,9 @@ Im Stil Zauberwelt baut das Dashboard diese Ansichten:
 - **Häuser**: jede Person sammelt Edelsteine im Glas ihres Hauses (Wochenpunkte aus dem Familien-Rennen). Schwebende Kerzen schalten Lampen.
 - **Kessel**: das Familienspiel. Erledigte Aufgaben sind Zutaten, ist der Kessel voll, gibt es die Familien-Belohnung.
 
-Cockpit, Essen und Aufgaben mit dem Rennen bleiben in beiden Stilen.
+- **Figuren**: jede Person hat eine eigene Zauberer-Figur mit Umhang in ihrer Farbe, Zeichen und Begleittier. In der **Figuren-Werkstatt** gestaltet jeder seine Figur selbst (Hautton, Haare, Frisur, Hut, Zauberstab, Zeichen, Begleittier, Brille und eine **Tiergestalt**, in die sich die Figur beim Antippen verwandelt). Die Figuren haben Stimmungen (freut sich nach erledigten Aufgaben, gähnt morgens, schläft nachts) und steigen mit den Gesamtpunkten aus dem Rennen auf: Lehrling, Geselle (250), Zauberer (750), Meister (1500), Erzmagier (3000). Höhere Stufen schalten Knorrstab, Silberstab, Kristallstab, Sternkrone und Drache frei. Die Köpfe der Figuren erscheinen an den Terminen im Zauberbuch, auf den Siegeln zur Personenwahl, an den Zeigern der Familienuhr und auf der Familienkarte. Gespeichert wird mit dem Dienst `familienplaner.figur_setzen`.
+
+Essen, Aufgaben mit dem Rennen und Mein Bereich liegen im Stil Zauberwelt auf Pergament. Das Cockpit gehört zum klassischen Stil; im Stil Zauberwelt steht an seiner Stelle die Seite Figuren (`zauber: { cockpit: true }` zeigt es zusätzlich).
 
 ```yaml
 strategy:
@@ -283,9 +285,10 @@ strategy:
     orte: [Zuhause, Arbeit, Schule, Training, Unterwegs, Freunde]
     haeuser:
       anna: { name: Sternenlicht }
+    # cockpit: true
 ```
 
-Die Karten heißen `familienplaner-zauberkopf`, `-zauberuhr`, `-zauberkarte`, `-zauberbuch`, `-haeuser` und `-kessel` und lassen sich auch einzeln verwenden. Die Schriften kommen von Google Fonts; ohne Internet wird eine Serifenschrift genutzt. Die Zauberwelt ist eine eigene Welt ohne Namen, Wappen oder Figuren aus Büchern oder Filmen.
+Die Karten heißen `familienplaner-zauberkopf`, `-zauberuhr`, `-zauberkarte`, `-zauberbuch`, `-haeuser`, `-kessel`, `-figuren` und `-zauberrahmen` (legt jede normale Karte auf Pergament) und lassen sich auch einzeln verwenden. Die Schriften kommen von Google Fonts; ohne Internet wird eine Serifenschrift genutzt. Die Zauberwelt ist eine eigene Welt ohne Namen, Wappen oder Figuren aus Büchern oder Filmen.
 
 ## Wand-Tablet-Modus
 
