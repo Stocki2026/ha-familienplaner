@@ -77,7 +77,8 @@ async def _tick(hass, basis):
     """Zeit vorspulen: geplante Zeit-Trigger auslösen und den Coordinator aktualisieren."""
     async_fire_time_changed(hass)
     await basis["entry"].runtime_data.async_refresh()
-    await hass.async_block_till_done()
+    # Zeit-Trigger laufen in HA als Hintergrund-Tasks -> auch auf diese warten
+    await hass.async_block_till_done(wait_background_tasks=True)
 
 
 def _sensor(hass, suffix):
@@ -162,7 +163,7 @@ async def test_countdowns_und_geburtstag(hass: HomeAssistant, basis, freezer: Fr
     c = _sensor(hass, "countdowns")
     assert c.attributes["liste"][0]["tage"] == 7
     # Geburtstags-Assistent um 08:00 am nächsten Morgen? Heute ist der 27., Geburtstag in 7 Tagen -> am 27. um 8:00
-    freezer.move_to(dt_util.parse_datetime("2026-11-28T08:00:00+01:00"))
+    freezer.move_to(dt_util.parse_datetime("2026-11-28T08:00:01+01:00"))
     await _tick(hass, basis)
     # am 28. sind es 6 Tage -> keine Aufgabe; 7 Tage vorher war der 27. -> nachholen nicht vorgesehen
     assert hass.states.get("todo.familie").state == "0"
@@ -175,7 +176,7 @@ async def test_geburtstags_assistent_und_muell(hass: HomeAssistant, basis, freez
         {"entity_id": "calendar.besondere_tage", "summary": "Geburtstag von Lisa", "start_date": "2026-12-05", "end_date": "2026-12-06"},
         blocking=True,
     )
-    freezer.move_to(dt_util.parse_datetime("2026-11-28T08:00:00+01:00"))
+    freezer.move_to(dt_util.parse_datetime("2026-11-28T08:00:01+01:00"))
     await coord._geburtstags_assistent(dt_util.now())
     await hass.async_block_till_done()
     antwort = await hass.services.async_call(

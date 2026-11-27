@@ -206,8 +206,8 @@ class FamilienplanerStrategy extends HTMLElement {
     // ----------------------------------------------------------- Woche (Wand)
     const kopf = schoen ? [{ type: "custom:familienplaner-kopf", wetter: u.wetter, muell: s.muell, ferien: s.ferien, konflikte: s.konflikte }] : [markdownKopf];
     if (u.wetter) kopf.push({ type: "weather-forecast", entity: u.wetter, show_current: !schoen, show_forecast: true, forecast_type: "daily" });
-    const personenKarte = (liste) => schoen
-      ? { type: "custom:familienplaner-personen", personen: liste.filter((p) => p.sensor).map((p) => ({ sensor: p.sensor, name: p.name, farbe: p.farbe, person: p.person })) }
+    const personenKarte = (liste, auswahl = false) => schoen
+      ? { type: "custom:familienplaner-personen", auswahl, personen: liste.filter((p) => p.sensor).map((p) => ({ slug: p.slug, sensor: p.sensor, name: p.name, farbe: p.farbe, person: p.person })) }
       : { type: "grid", columns: Math.max(1, Math.min(liste.length, 5)), square: false, cards: liste.filter((p) => p.sensor).map((p) => personKachel(p)) };
     const extras = schoen
       ? [s.pinnwand && { type: "custom:familienplaner-pinnwand", entity: s.pinnwand, liste: u.listen && u.listen.pinnwand }, s.countdowns && { type: "custom:familienplaner-countdowns", entity: s.countdowns }].filter(Boolean)
@@ -228,10 +228,15 @@ class FamilienplanerStrategy extends HTMLElement {
           type: "vertical-stack",
           cards: [
             { type: "grid", columns: 2, square: false, cards: kopf },
-            personenKarte(personen),
+            personenKarte(personen, schoen),
+            ...(schoen ? [{
+              type: "custom:familienplaner-fokus",
+              personen: personen.map((p) => ({ slug: p.slug, name: p.name, farbe: p.farbe, person: p.person, sensor: p.sensor, kalender: p.kalender, liste: p.liste })),
+              familie: { kalender: u.familie.kalender, liste: u.familie.liste },
+            }] : []),
             wochenKarte(u, hacs),
             { type: "custom:familienplaner-wand", personen: personen.filter((p) => p.sensor).map((p) => ({ sensor: p.sensor, name: p.name, farbe: p.farbe })), ...(config.tablet || {}) },
-            { type: "grid", columns: 3, square: false, cards: [...extras, { type: "vertical-stack", cards: [formularKarte(u), ...kacheln] }] },
+            { type: "grid", columns: 3, square: false, cards: [...extras, { type: "vertical-stack", cards: [schoen && u.formular && u.formular.satz ? { type: "custom:familienplaner-schnell" } : formularKarte(u), ...kacheln] }] },
           ],
         },
       ],
