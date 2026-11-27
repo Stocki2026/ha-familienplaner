@@ -272,3 +272,203 @@ def morgen_ansage(
     text = " ".join(teile)
     text = re.sub(r"[^\w\s.,:!?()\-+]", "", text)
     return re.sub(r"\s+", " ", text).strip()
+
+
+# --------------------------------------------------------------- Konflikte
+def _ueberlappt(a: Termin, b: Termin) -> bool:
+    return a.start < b.end and b.start < a.end  # type: ignore[operator]
+
+
+def konflikte(termine: list[Termin], jetzt: datetime, fahrer_von, namen: dict[str, str]) -> list[dict[str, Any]]:
+    """Überschneidungen finden.
+
+    - "doppelt": zwei eigene Termine einer Person überschneiden sich
+    - "fahrer":  der Fahrer eines Termins hat zur selben Zeit selbst einen Termin
+                 oder fährt gleichzeitig jemand anderen
+    fahrer_von(t) liefert den slug des Fahrers ("" = keiner).
+    """
+    zukunft = [t for t in sortiert(termine) if not t.ganztag and t.end > jetzt]  # type: ignore[operator]
+    ergebnis: list[dict[str, Any]] = []
+    gesehen: set[str] = set()
+
+    def neu(art: str, person: str, a: Termin, b: Termin) -> None:
+        key = "|".join(sorted([a.key, b.key])) + f"|{art}|{person}"
+        if key in gesehen:
+            return
+        gesehen.add(key)
+        name = namen.get(person, person.capitalize())
+        start = max(a.start, b.start)  # type: ignore[type-var]
+        if art == "doppelt":
+            text = f"{name}: „{a.summary}“ und „{b.summary}“ überschneiden sich"
+        else:
+            text = f"{name} soll fahren, hat aber „{b.summary}“"
+        ergebnis.append({"art": art, "person": person, "a": a.summary, "b": b.summary,
+                         "start": start.isoformat(), "text": text, "key": key})
+
+    for i, a in enumerate(zukunft):
+        for b in zukunft[i + 1:]:
+            if b.start >= a.end:  # type: ignore[operator]
+                break
+            if a.person == b.person and a.person != "familie" and a.kalender == b.kalender:
+                neu("doppelt", a.person, a, b)
+    for t in zukunft:
+        f = fahrer_von(t)
+        if not f or f == t.person:
+            continue
+        for b in zukunft:
+            if b is t or not _ueberlappt(t, b):
+                continue
+            if b.person == f or (fahrer_von(b) == f and b.person != t.person):
+                neu("fahrer", f, t, b)
+    ergebnis.sort(key=lambda k: k["start"])
+    return ergebnis
+
+
+# ------------------------------------------------------- Termin aus einem Satz
+_TAGE = {
+    "montag": 0, "dienstag": 1, "mittwoch": 2, "donnerstag": 3, "freitag": 4, "samstag": 5, "sonntag": 6,
+    "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3, "friday": 4, "saturday": 5, "sunday": 6,
+}
+_MONATE = {m.lower(): i + 1 for i, m in enumerate(MONATE)} | {
+    m: i + 1 for i, m in enumerate(["january", "february", "march", "april", "may", "june", "july",
+                                    "august", "september", "october", "november", "december"])
+} | {"maerz": 3, "jan": 1, "feb": 2, "aug": 8, "sep": 9, "okt": 10, "nov": 11, "dez": 12}
+_FUELL = {
+    "hat", "habe", "haben", "muss", "müssen", "geht", "gehen", "soll", "einen", "ein", "eine", "termin", "um",
+    "am", "uhr", "zum", "zur", "beim", "ab", "has", "have", "an", "a", "at", "on", "appointment", "the",
+    "nächsten", "naechsten", "kommenden", "next", "trag", "trage", "ein,", "bitte", "please", "add",
+    "für", "fuer", "for", "o'clock",
+}
+_FAMILIE_WORTE = {"wir", "familie", "alle", "uns", "we", "family", "everyone"}
+
+
+def termin_aus_satz(text: str, namen: dict[str, str], jetzt: datetime) -> dict[str, Any] | None:
+    """Versteht Sätze wie „Ben hat Dienstag um 4 Fußball, Anna fährt“.
+
+    namen: {kleingeschriebener Name: slug}. Ergebnis: person, titel, start, ganztag, fahrer
+    oder None, wenn kein Titel übrig bleibt.
+    """
+    satz = " " + re.sub(r"\s+", " ", text.strip()) + " "
+    low = satz.lower()
+
+    # Fahrer: "Anna fährt", "fährt Anna", "Fahrer Anna", "Anna drives"
+    fahrer = ""
+    for name, slug in namen.items():
+        muster = rf"(?:,?\s*{re.escape(name)}\s+(?:fährt|faehrt|bringt|holt ab|drives)|,?\s*(?:fährt|faehrt|fahrer:?|driver:?)\s+{re.escape(name)})\b"
+        m = re.search(muster, low)
+        if m:
+            fahrer = slug
+            low = low[: m.start()] + " " + low[m.end():]
+            break
+
+    # Person
+    person = "familie"
+    woerter = re.findall(r"[\wäöüß]+", low)
+    for w in woerter:
+        if w in namen:
+            person = namen[w]
+            low = re.sub(rf"\b{re.escape(w)}\b", " ", low, count=1)
+            break
+        if w in _FAMILIE_WORTE:
+            low = re.sub(rf"\b{re.escape(w)}\b", " ", low, count=1)
+            break
+
+    # Datum
+    tag = jetzt.date()
+    datum_gefunden = False
+    m = re.search(r"\b(übermorgen|uebermorgen|morgen|heute|tomorrow|today)\b", low)
+    if m:
+        wort = m.group(1)
+        tag = tag + timedelta(days=2 if wort.startswith(("über", "ueber")) else (1 if wort in ("morgen", "tomorrow") else 0))
+        low = low[: m.start()] + " " + low[m.end():]
+        datum_gefunden = True
+    if not datum_gefunden:
+        m = re.search(r"\b(\d{1,2})\.\s?(\d{1,2})\.(\d{2,4})?", low)
+        m2 = re.search(r"\b(\d{1,2})\.?\s+(" + "|".join(sorted(_MONATE, key=len, reverse=True)) + r")\b", low)
+        if m:
+            tg, mo, jahr = int(m.group(1)), int(m.group(2)), m.group(3)
+        elif m2:
+            tg, mo, jahr = int(m2.group(1)), _MONATE[m2.group(2)], None
+            m = m2
+        if m:
+            j = int(jahr) + (2000 if jahr and len(jahr) == 2 else 0) if jahr else jetzt.year
+            try:
+                tag = date(j, mo, tg)
+                if not jahr and tag < jetzt.date():
+                    tag = date(j + 1, mo, tg)
+                low = low[: m.start()] + " " + low[m.end():]
+                datum_gefunden = True
+            except ValueError:
+                pass
+    if not datum_gefunden:
+        for wort, wt in _TAGE.items():
+            m = re.search(rf"\b{wort}s?\b", low)
+            if m:
+                diff = (wt - jetzt.weekday()) % 7
+                if re.search(r"\b(nächste[nm]?|naechste[nm]?|next)\s*$", low[: m.start()].rstrip()):
+                    diff = diff or 7
+                tag = jetzt.date() + timedelta(days=diff)
+                low = low[: m.start()] + " " + low[m.end():]
+                datum_gefunden = True
+                break
+
+    # Uhrzeit
+    zeit: tuple[int, int] | None = None
+    m = re.search(r"\bhalb\s+(\d{1,2})\b", low)
+    if m:
+        stunde = (int(m.group(1)) - 1) % 24
+        if 1 <= stunde <= 7 and not re.search(r"\b(früh|frueh|morgens|morning)\b", low):
+            stunde += 12
+        zeit = (stunde, 30)
+    else:
+        m = re.search(r"\b(?:um|at|ab)\s+(\d{1,2})(?:[:.](\d{2}))?\s*(uhr|am|pm)?\b|\b(\d{1,2})(?:[:.](\d{2}))?\s*(uhr|am|pm)\b|\b(\d{1,2})[:](\d{2})\b", low)
+        if m:
+            g = m.groups()
+            h, mi, zusatz = (g[0], g[1], g[2]) if g[0] else ((g[3], g[4], g[5]) if g[3] else (g[6], g[7], None))
+            stunde, minute = int(h), int(mi or 0)
+            if zusatz == "pm" and stunde < 12:
+                stunde += 12
+            elif zusatz != "am" and 1 <= stunde <= 7 and not re.search(r"\b(früh|frueh|morgens|morning)\b", low):
+                stunde += 12  # "um 4" am Nachmittag
+            if 0 <= stunde < 24 and 0 <= minute < 60:
+                zeit = (stunde, minute)
+    if m:
+        low = low[: m.start()] + " " + low[m.end():]
+    low = re.sub(r"\b(früh|frueh|morgens|nachmittags|abends|morning|afternoon|evening)\b", " ", low)
+
+    # Rest = Titel (Originalschreibweise übernehmen)
+    rest = [w for w in re.findall(r"[\wäöüßÄÖÜ'\-]+", low) if w not in _FUELL]
+    if not rest:
+        return None
+    original = {w.lower(): w for w in re.findall(r"[\wäöüßÄÖÜ'\-]+", text)}
+    titel = " ".join(original.get(w, w) for w in rest)
+    titel = titel[0].upper() + titel[1:]
+
+    tz = jetzt.tzinfo
+    if zeit:
+        start: datetime | date = datetime(tag.year, tag.month, tag.day, zeit[0], zeit[1], tzinfo=tz)
+    else:
+        start = tag
+    return {"person": person, "titel": titel, "start": start, "ganztag": zeit is None, "fahrer": fahrer}
+
+
+# ------------------------------------------------------------ Wochenrückblick
+def wochen_vorschau(termine: list[Termin], montag: date, tz, namen: dict[str, str], mit_person: bool) -> list[str]:
+    """Zeilen je Tag für die kommende Woche."""
+    zeilen = []
+    for i in range(7):
+        tag = montag + timedelta(days=i)
+        am_tag = []
+        for t in sortiert(termine):
+            s = t.start.astimezone(tz).date() if isinstance(t.start, datetime) else t.start
+            e = t.end.astimezone(tz).date() if isinstance(t.end, datetime) else t.end - timedelta(days=1)
+            if s <= tag <= e:
+                z = f"{zeit_text(t, tz)} {t.summary}"
+                if mit_person and t.person not in ("", "familie"):
+                    z += f" ({namen.get(t.person, t.person)})"
+                if t.fahrer:
+                    z += f" 🚗 {t.fahrer}"
+                am_tag.append(z)
+        if am_tag:
+            zeilen.append(f"{WOCHENTAGE_KURZ[tag.weekday()]} {tag.day}.{tag.month}.: " + ", ".join(am_tag))
+    return zeilen

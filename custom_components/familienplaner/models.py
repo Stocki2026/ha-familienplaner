@@ -111,3 +111,4 @@ class PlanerDaten:
     ferien: dict[str, Any] = field(default_factory=dict)
     pinnwand: list[str] = field(default_factory=list)
     essen_heute: list[str] = field(default_factory=list)
+    konflikte: list[dict[str, Any]] = field(default_factory=list)

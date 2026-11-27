@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, datetime as _DateTime, timedelta
 import hashlib
 import logging
 from pathlib import Path
@@ -19,6 +19,7 @@ from homeassistant.exceptions import ServiceValidationError
 import homeassistant.helpers.config_validation as cv
 from homeassistant.util import dt as dt_util
 
+from . import logic
 from .const import CONF_MEAL_CALENDAR, CONF_SHOPPING_TODO, DOMAIN, FAMILY, URL_BASE
 from .coordinator import FamilienplanerCoordinator
 
@@ -26,6 +27,7 @@ _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = [
     Platform.SENSOR,
+    Platform.BINARY_SENSOR,
     Platform.SELECT,
     Platform.TEXT,
     Platform.DATETIME,
@@ -69,7 +71,7 @@ def _coordinator(hass: HomeAssistant) -> FamilienplanerCoordinator:
     raise ServiceValidationError("Der Familienplaner ist nicht eingerichtet.")
 
 
-async def async_termin_anlegen(coord: FamilienplanerCoordinator, daten: dict[str, Any]) -> None:
+async def async_termin_anlegen(coord: FamilienplanerCoordinator, daten: dict[str, Any]) -> str:
     """Legt einen Termin im Kalender der Person (oder Familie) an."""
     hass = coord.hass
     person = str(daten["person"]).lower()
@@ -111,6 +113,35 @@ async def async_termin_anlegen(coord: FamilienplanerCoordinator, daten: dict[str
         wer = "" if person == FAMILY else f" ({coord.namen.get(person, person)})"
         await coord.async_benachrichtigen(fahrer_slug, f"🚗 Du fährst: {titel}", wann + wer)
     await coord.async_request_refresh()
+    return wann
+
+
+async def async_termin_aus_satz(coord: FamilienplanerCoordinator, text: str, werfen: bool = True) -> dict[str, Any]:
+    """Versteht einen Satz („Ben hat Dienstag um 4 Fußball, Anna fährt“) und legt den Termin an."""
+    namen = {p.name.lower(): p.slug for p in coord.personen}
+    namen.update({p.slug: p.slug for p in coord.personen})
+    erkannt = logic.termin_aus_satz(text, namen, dt_util.now())
+    if not erkannt:
+        hinweis = f"Ich habe „{text}“ nicht verstanden. Beispiel: „Ben hat Dienstag um 16 Uhr Fußball“."
+        if werfen:
+            raise ServiceValidationError(hinweis)
+        return {"verstanden": False, "antwort": hinweis}
+    start = erkannt["start"]
+    # Achtung: „datetime“ wird in diesem Paket von der Plattform datetime.py überschattet
+    if not isinstance(start, _DateTime):
+        start = _DateTime.combine(start, _DateTime.min.time(), tzinfo=dt_util.get_default_time_zone())
+    if not coord.kalender_von(erkannt["person"]):
+        erkannt["person"] = FAMILY
+    wann = await async_termin_anlegen(coord, {
+        "person": erkannt["person"], "titel": erkannt["titel"], "start": start,
+        "ganztag": erkannt["ganztag"], "fahrer": erkannt["fahrer"], "dauer": 60,
+    })
+    wer = "die Familie" if erkannt["person"] == FAMILY else coord.namen.get(erkannt["person"], erkannt["person"])
+    antwort = f"Eingetragen: {erkannt['titel']} für {wer}, {wann}."
+    if erkannt["fahrer"]:
+        antwort += f" {coord.namen.get(erkannt['fahrer'], erkannt['fahrer'])} fährt."
+    return {"verstanden": True, "person": erkannt["person"], "titel": erkannt["titel"], "start": start.isoformat(),
+            "ganztag": erkannt["ganztag"], "fahrer": erkannt["fahrer"], "antwort": antwort}
 
 
 async def async_gericht_planen(coord: FamilienplanerCoordinator, daten: dict[str, Any]) -> None:
@@ -161,6 +192,19 @@ def _dienste_registrieren(hass: HomeAssistant) -> None:
         text = await _coordinator(hass).async_morgen_ansage()
         return {"text": text}
 
+    async def satz(call: ServiceCall) -> ServiceResponse:
+        return await async_termin_aus_satz(_coordinator(hass), call.data["text"], werfen=False)
+
+    async def woche(call: ServiceCall) -> ServiceResponse:
+        return {"texte": await _coordinator(hass).async_wochenrueckblick()}
+
+    hass.services.async_register(
+        DOMAIN, "termin_aus_satz", satz, schema=vol.Schema({vol.Required("text"): cv.string}),
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN, "wochenrueckblick", woche, schema=vol.Schema({}), supports_response=SupportsResponse.OPTIONAL
+    )
     hass.services.async_register(DOMAIN, "termin_anlegen", termin, schema=SCHEMA_TERMIN)
     hass.services.async_register(DOMAIN, "gericht_planen", gericht, schema=SCHEMA_GERICHT)
     hass.services.async_register(DOMAIN, "benachrichtigen", nachricht, schema=SCHEMA_NACHRICHT)

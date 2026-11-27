@@ -18,6 +18,11 @@ no YAML needed. *Deutsch weiter unten.*
 - Chores with points: a family race track, streaks, levels, a reward shop and an automatic chore rotation
 - Big picture tiles for tasks, so children who can't read yet know what to do (tap = done, with confetti)
 - Family treasure map: everyone walks together across an island, each station unlocks a family reward
+- Conflict warnings: double bookings and drivers who are busy themselves
+- Events from one sentence: "Ben has football tomorrow at 3pm, Anna drives" (text field, service, Assist voice)
+- Weekly review every Sunday evening: this week done, next week per person, birthdays, waste
+- Your home reacts to the calendar: events on the bus, "next start" and "in an event" sensors, ready-made blueprints
+- Wall tablet mode: photo screensaver with clock and next events, night dimming, wake on motion
 - Dashboard strategy `custom:familienplaner`: week view for a wall tablet, a personal view per user for phones,
   family, meals and month – new people appear automatically
 
@@ -120,12 +125,81 @@ Die Karten funktionieren auch einzeln:
 - `type: custom:aufgaben-bilder-card` mit `entity: todo.ben` (optional `farbe`, `ton: false`, `erledigte: false`,
   `titel`)
 
+## Terminkonflikte
+
+Der Familienplaner prüft die nächsten Tage auf Doppelbuchungen einer Person und auf Fahrer, die zur selben Zeit
+selbst einen Termin haben (oder jemand anderen fahren). Jeder Konflikt kommt einmal als Push an die betroffene
+Person, steht als roter Hinweis oben im Dashboard und im Sensor `Terminkonflikte` (Attribut `liste`).
+Abschalten: *Konfigurieren → Erinnerungen & Alexa*.
+
+## Termin in einem Satz
+
+Ins Feld **„Termin in einem Satz“** (im Formular „Neuer Termin“) einfach schreiben, z. B.
+„Ben hat Dienstag um 4 Fußball, Anna fährt“, „Zahnarzt Anna morgen 9:30“, „Wir gehen am 24.12. zu Oma“,
+„Elternabend nächsten Freitag um 19 Uhr“, „Carla hat halb 5 Klavier“. Erkannt werden Person (sonst Familie),
+heute/morgen/übermorgen, Wochentage, Datum, Uhrzeit („um 4“ = 16 Uhr, „halb 5“ = 16:30) und der Fahrer.
+
+**Per Sprache (Assist, Handy-App oder Voice-Gerät):** Vorlage importieren –
+[Termin per Sprache](https://my.home-assistant.io/create-link/?redirect=blueprint_import&blueprint_url=https%3A%2F%2Fgithub.com%2FStocki2026%2Fha-familienplaner%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Ffamilienplaner%2Ftermin_per_sprache.yaml) – und sagen: „Termin Ben hat morgen um 16 Uhr Fußball“.
+Alexa kann ohne eigenen Skill keinen freien Text an Home Assistant übergeben; dafür Assist nutzen.
+
+## Wochenrückblick
+
+Sonntags um 18:00 (einstellbar) bekommt jede Person eine Nachricht: wie viele Termine diese Woche geschafft wurden,
+die nächste Woche Tag für Tag, Geburtstage, Müllabfuhr und eventuelle Konflikte. Sofort testen:
+Dienst `familienplaner.wochenrueckblick`.
+
+## Das Haus reagiert auf den Kalender
+
+Für eigene Automationen gibt es pro Person die Sensoren **„nächster Beginn“** (Zeitstempel) und **„im Termin“**
+(an/aus) sowie diese Ereignisse mit `person`, `name`, `titel`, `start`, `ende`, `ort`, `fahrer`:
+`familienplaner_termin_bald` (zur Erinnerungszeit), `familienplaner_termin_beginnt`, `familienplaner_termin_endet`,
+`familienplaner_konflikt`.
+
+Fertige Vorlagen (Blueprints) zum Importieren:
+
+- [Vor einem Termin](https://my.home-assistant.io/create-link/?redirect=blueprint_import&blueprint_url=https%3A%2F%2Fgithub.com%2FStocki2026%2Fha-familienplaner%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Ffamilienplaner%2Fvor_termin.yaml) – z. B. Wecklicht 45 Minuten vor dem ersten Termin (nur wenn er vor
+  10 Uhr beginnt), Bad vorheizen, Kaffeemaschine an
+- [Wenn ein Termin beginnt/endet](https://my.home-assistant.io/create-link/?redirect=blueprint_import&blueprint_url=https%3A%2F%2Fgithub.com%2FStocki2026%2Fha-familienplaner%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Ffamilienplaner%2Ftermin_ereignis.yaml) – z. B. Heizung runter, Flurlicht an,
+  Alarmanlage scharf; filterbar nach Person und Stichwort
+
+## Wand-Tablet-Modus
+
+Auf dem Wand-Tablet das Familienplaner-Dashboard **einmal mit `?wand=1` am Ende der Adresse** öffnen
+(z. B. `http://homeassistant.local:8123/familienplaner/woche?wand=1`). Ab dann gilt nur auf diesem Gerät:
+
+- nach 5 Minuten ohne Berührung: Bildschirmschoner mit Fotos, großer Uhr und den nächsten Terminen
+- nachts (22–6 Uhr): schwarzer Bildschirm mit gedimmter Uhr, optional wird die Tablet-Helligkeit gesenkt
+- Berührung oder Bewegungsmelder weckt sofort
+- mit `?wand=0` wieder ausschalten
+
+Einstellungen in der Rohkonfiguration des Dashboards:
+
+```yaml
+strategy:
+  type: custom:familienplaner
+  tablet:
+    leerlauf: 5                                         # Minuten
+    fotos: media-source://media_source/local/fotos      # Ordner /media/fotos, oder Liste von Bild-URLs
+    bewegung: binary_sensor.flur_bewegung
+    helligkeit: number.wandtablet_bildschirmhelligkeit  # z. B. Fully Kiosk; auch light.* möglich
+    hell_tag: 200
+    hell_nacht: 5
+    nacht_von: "22:00"
+    nacht_bis: "06:00"
+```
+
+Tipp: Mit der App *Fully Kiosk Browser* (und der gleichnamigen Integration) bleibt das Tablet immer an und
+die Helligkeit lässt sich steuern.
+
 ## Dienste
 
 - `familienplaner.termin_anlegen` (person, titel, start, dauer, ganztag, ort, fahrer, benachrichtigen)
 - `familienplaner.gericht_planen` (tag, gericht, zutaten)
 - `familienplaner.benachrichtigen` (person oder `familie`, titel, nachricht)
 - `familienplaner.morgen_ansage` (gibt den Text zurück)
+- `familienplaner.termin_aus_satz` (text; gibt `verstanden` und `antwort` zurück)
+- `familienplaner.wochenrueckblick` (verschickt den Wochenrückblick sofort)
 
 ## Für Erweiterungen
 

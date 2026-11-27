@@ -22,6 +22,7 @@ const TEXTE = {
     morgen: "Morgen",
     tageWort: "Tage",
     muell: "Müll",
+    konflikte: "Terminkonflikte",
   },
   en: {
     tage: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
@@ -37,6 +38,7 @@ const TEXTE = {
     morgen: "Tomorrow",
     tageWort: "days",
     muell: "Waste",
+    konflikte: "event conflicts",
   },
 };
 const t = (hass) => TEXTE[(hass && hass.language || "de").startsWith("de") ? "de" : "en"];
@@ -89,7 +91,7 @@ class FpBasis extends HTMLElement {
 class FamilienplanerKopf extends FpBasis {
   connectedCallback() { this._timer = setInterval(() => this._render(), 20000); }
   disconnectedCallback() { clearInterval(this._timer); }
-  _relevant() { return [this._config.wetter, this._config.muell, this._config.ferien].filter(Boolean); }
+  _relevant() { return [this._config.wetter, this._config.muell, this._config.ferien, this._config.konflikte].filter(Boolean); }
   getCardSize() { return 4; }
   _render() {
     if (!this.shadowRoot || !this._hass) return;
@@ -115,6 +117,14 @@ class FamilienplanerKopf extends FpBasis {
     const f = this._config.ferien && this._hass.states[this._config.ferien];
     if (f && f.state && f.state !== "unknown" && f.state !== "unbekannt") chips.push(`<span class="chip ferien" data-id="${esc(this._config.ferien)}"><ha-icon icon="mdi:beach"></ha-icon>${esc(f.state)}</span>`);
 
+    const k = this._config.konflikte && this._hass.states[this._config.konflikte];
+    const anzahl = k ? Number(k.state) || 0 : 0;
+    if (anzahl) {
+      const erster = (k.attributes.liste || [])[0];
+      const text = anzahl === 1 && erster ? erster.text : `${anzahl} ${tx.konflikte}`;
+      chips.unshift(`<span class="chip warnung" data-id="${esc(this._config.konflikte)}"><ha-icon icon="mdi:calendar-alert"></ha-icon>${esc(text)}</span>`);
+    }
+
     this.shadowRoot.innerHTML = `
       <style>${BASIS_CSS}
         ha-card { padding: 22px 26px; background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 14%, var(--card-background-color, #fff)), var(--card-background-color, #fff) 70%); }
@@ -128,6 +138,7 @@ class FamilienplanerKopf extends FpBasis {
         .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
         .chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-size: 14px; font-weight: 600; cursor: pointer;
                 background: color-mix(in srgb, var(--secondary-text-color) 12%, transparent); color: var(--primary-text-color); }
+        .chip.warnung { background: color-mix(in srgb, var(--error-color, #DB4437) 18%, transparent); color: var(--error-color, #B3261E); }
         .chip.ferien { background: color-mix(in srgb, #4FB3BF 20%, transparent); }
         .chip ha-icon { --mdc-icon-size: 18px; }
       </style>

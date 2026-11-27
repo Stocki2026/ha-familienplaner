@@ -88,7 +88,10 @@
           "fahrzeit": "Fahrzeit-Warnung (Waze Travel Time)",
           "alexa": "Alexa-Geräte für Ansagen (notify …_announce)",
           "alexa_morgen": "Alexa-Morgen-Ansage",
-          "alexa_uhrzeit": "Uhrzeit der Morgen-Ansage"
+          "alexa_uhrzeit": "Uhrzeit der Morgen-Ansage",
+          "konflikt_warnung": "Vor Terminkonflikten warnen (Doppelbuchung, Fahrer verplant)",
+          "wochenrueckblick": "Wochenrückblick am Sonntagabend",
+          "wochenrueckblick_uhrzeit": "Uhrzeit des Wochenrückblicks"
         }
       }
     },
@@ -270,6 +273,20 @@
     "neue_insel": {
       "name": "Neue Insel",
       "description": "Startet eine neue Schatzinsel: Die Familie läuft wieder von vorne."
+    },
+    "termin_aus_satz": {
+      "name": "Termin aus einem Satz",
+      "description": "Versteht einen Satz wie „Ben hat Dienstag um 4 Fußball, Anna fährt“ und legt den Termin an.",
+      "fields": {
+        "text": {
+          "name": "Satz",
+          "description": "Was, wer, wann und optional wer fährt."
+        }
+      }
+    },
+    "wochenrueckblick": {
+      "name": "Wochenrückblick",
+      "description": "Schickt allen sofort den Rückblick auf diese und die Vorschau auf die nächste Woche."
     }
   },
   "entity": {
