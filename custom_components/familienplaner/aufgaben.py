@@ -138,6 +138,23 @@ STANDARD_BELOHNUNGEN: dict[str, list[dict[str, Any]]] = {
     ],
 }
 
+STANDARD_STATIONEN: dict[str, list[dict[str, Any]]] = {
+    "de": [
+        {"emoji": "🐚", "name": "Muschelstrand", "belohnung": "Gemeinsam Eis essen 🍦", "punkte": 150},
+        {"emoji": "🌴", "name": "Palmenoase", "belohnung": "Spieleabend 🎲", "punkte": 350},
+        {"emoji": "🌋", "name": "Feuerberg", "belohnung": "Picknick im Park 🧺", "punkte": 600},
+        {"emoji": "🏴‍☠️", "name": "Piratenbucht", "belohnung": "Pizza selbst backen 🍕", "punkte": 900},
+        {"emoji": "💎", "name": "Schatzhöhle", "belohnung": "Großer Familienausflug 🎢", "punkte": 1300},
+    ],
+    "en": [
+        {"emoji": "🐚", "name": "Shell Beach", "belohnung": "Ice cream together 🍦", "punkte": 150},
+        {"emoji": "🌴", "name": "Palm Oasis", "belohnung": "Game night 🎲", "punkte": 350},
+        {"emoji": "🌋", "name": "Fire Mountain", "belohnung": "Picnic in the park 🧺", "punkte": 600},
+        {"emoji": "🏴‍☠️", "name": "Pirate Bay", "belohnung": "Bake pizza together 🍕", "punkte": 900},
+        {"emoji": "💎", "name": "Treasure Cave", "belohnung": "Big family day out 🎢", "punkte": 1300},
+    ],
+}
+
 TEXTE: dict[str, dict[str, str]] = {
     "de": {
         "familienziel_text": "Pizza- und Filmabend 🍕",
@@ -156,6 +173,10 @@ TEXTE: dict[str, dict[str, str]] = {
         "farbe_unbekannt": "Unbekannte Farbe „{farbe}“.",
         "nicht_eingerichtet": "Der Familienplaner ist nicht eingerichtet.",
         "start": "Start",
+        "station_titel": "🗺️ Station erreicht: {emoji} {name}",
+        "station_text": "Die ganze Familie hat es geschafft! Belohnung: {belohnung}",
+        "station_aufgabe": "🎁 {emoji} {name}: {belohnung}",
+        "station_beschreibung": "Schatzkarte, Insel {insel}. Abhaken, wenn die Familien-Belohnung erfüllt ist.",
     },
     "en": {
         "familienziel_text": "Pizza & movie night 🍕",
@@ -174,6 +195,10 @@ TEXTE: dict[str, dict[str, str]] = {
         "farbe_unbekannt": "Unknown colour “{farbe}”.",
         "nicht_eingerichtet": "Familienplaner is not set up.",
         "start": "Start",
+        "station_titel": "🗺️ Station reached: {emoji} {name}",
+        "station_text": "The whole family made it! Reward: {belohnung}",
+        "station_aufgabe": "🎁 {emoji} {name}: {belohnung}",
+        "station_beschreibung": "Treasure map, island {insel}. Check off when the family reward has been granted.",
     },
 }
 
@@ -292,6 +317,8 @@ class AufgabenManager:
             "dienste": gespeichert.get("dienste") or deepcopy(STANDARD_DIENSTE[lang]),
             "belohnungen": gespeichert.get("belohnungen") or deepcopy(STANDARD_BELOHNUNGEN[lang]),
             "rotation": gespeichert.get("rotation", {"zaehler": {}, "zuletzt": {}, "datum": None}),
+            "stationen": gespeichert.get("stationen") or deepcopy(STANDARD_STATIONEN[lang]),
+            "insel": gespeichert.get("insel", {"nummer": 1, "punkte": 0, "erreicht": 0}),
         }
         if not self.daten["einstellungen"].get("familienziel_text"):
             self.daten["einstellungen"]["familienziel_text"] = TEXTE[lang]["familienziel_text"]
@@ -411,10 +438,13 @@ class AufgabenManager:
         for feld in ("rennen", "konto", "gesamt"):
             st[feld] = max(0, st[feld] + punkte)
         self.daten["familienpunkte"] = max(0, self.daten["familienpunkte"] + punkte)
+        insel = self.daten["insel"]
+        insel["punkte"] = max(0, insel["punkte"] + punkte)
         if aufgaben:
             st["heute"] = max(0, st["heute"] + aufgaben)
             st["woche"] = max(0, st["woche"] + aufgaben)
         await self._sieg_pruefen(slug)
+        await self._stationen_pruefen()
         self._geaendert()
 
     async def _sieg_pruefen(self, slug: str) -> None:
@@ -427,6 +457,59 @@ class AufgabenManager:
         await self.coord.async_benachrichtigen(
             FAMILY, _t(self.hass, "sieg_titel", name=name), _t(self.hass, "sieg_text", bonus=bonus)
         )
+
+    async def _stationen_pruefen(self) -> None:
+        """Schatzkarte: Für jede neu erreichte Station Familien-Push und Aufgabe in der Familienliste."""
+        insel = self.daten["insel"]
+        stationen = self.daten["stationen"]
+        while insel["erreicht"] < len(stationen) and insel["punkte"] >= int(stationen[insel["erreicht"]]["punkte"]):
+            s = stationen[insel["erreicht"]]
+            insel["erreicht"] += 1
+            kw = {"emoji": s.get("emoji", "📍"), "name": s["name"], "belohnung": s["belohnung"], "insel": insel["nummer"]}
+            await self.coord.async_benachrichtigen(
+                FAMILY, _t(self.hass, "station_titel", **kw), _t(self.hass, "station_text", **kw)
+            )
+            familie = self.coord.opt.get(CONF_FAMILY_TODO)
+            if not familie:
+                continue
+            try:
+                await self.hass.services.async_call(
+                    "todo", "add_item",
+                    {"entity_id": familie, "item": _t(self.hass, "station_aufgabe", **kw),
+                     "description": _t(self.hass, "station_beschreibung", **kw)},
+                    blocking=True,
+                )
+                await self.async_liste_pruefen(familie)
+            except HomeAssistantError as err:
+                _LOGGER.warning("Station %s konnte nicht eingetragen werden: %s", s["name"], err)
+
+    def insel_neu(self) -> None:
+        insel = self.daten["insel"]
+        self.daten["insel"] = {"nummer": int(insel.get("nummer", 1)) + 1, "punkte": 0, "erreicht": 0}
+        self._geaendert()
+
+    def stationen_festlegen(self, stationen: list[dict[str, Any]]) -> None:
+        self.daten["stationen"] = sorted(stationen, key=lambda s: int(s["punkte"]))
+        insel = self.daten["insel"]
+        # Bereits überschrittene Stationen gelten als erreicht, ohne erneute Benachrichtigung.
+        insel["erreicht"] = sum(1 for s in self.daten["stationen"] if insel["punkte"] >= int(s["punkte"]))
+        self._geaendert()
+
+    def schatzkarte_attribute(self) -> dict[str, Any]:
+        insel = self.daten["insel"]
+        stationen = [
+            {**s, "emoji": s.get("emoji", "📍"), "erreicht": i < insel["erreicht"]}
+            for i, s in enumerate(self.daten["stationen"])
+        ]
+        naechste = next((s for s in stationen if not s["erreicht"]), None)
+        return {
+            "insel": insel["nummer"],
+            "punkte": insel["punkte"],
+            "ziel": int(stationen[-1]["punkte"]) if stationen else 0,
+            "stationen": stationen,
+            "naechste": naechste["name"] if naechste else None,
+            "fehlt": max(0, int(naechste["punkte"]) - insel["punkte"]) if naechste else 0,
+        }
 
     # ----------------------------------------------------------------- Zeitpläne
     async def _tageswechsel(self, jetzt) -> None:
@@ -559,6 +642,7 @@ class AufgabenManager:
             "dienste": self.dienste_attribute(),
             "familien_liste": self.coord.opt.get(CONF_FAMILY_TODO),
             "entitaeten": self.entitaeten(),
+            "schatzkarte": self.schatzkarte_attribute(),
         }
 
     def entitaeten(self) -> dict[str, str]:
@@ -612,6 +696,14 @@ SCHEMA_BELOHNUNGEN = vol.Schema({
         vol.Required("kosten"): vol.All(vol.Coerce(int), vol.Range(min=1)),
         vol.Optional("icon", default="mdi:gift-outline"): cv.icon,
     })],
+})
+SCHEMA_STATIONEN = vol.Schema({
+    vol.Required("stationen"): vol.All([vol.Schema({
+        vol.Required("name"): cv.string,
+        vol.Required("belohnung"): cv.string,
+        vol.Required("punkte"): vol.All(vol.Coerce(int), vol.Range(min=1)),
+        vol.Optional("emoji", default="📍"): cv.string,
+    })], vol.Length(min=1)),
 })
 SCHEMA_DIENSTE = vol.Schema({
     vol.Required("dienste"): [vol.Schema({
@@ -736,6 +828,17 @@ def _dienste_registrieren(hass: HomeAssistant) -> None:
     )
     hass.services.async_register(DOMAIN, "belohnungen_festlegen", belohnungen, schema=SCHEMA_BELOHNUNGEN)
     hass.services.async_register(DOMAIN, "dienste_festlegen", dienste, schema=SCHEMA_DIENSTE)
+
+    async def stationen(call: ServiceCall) -> None:
+        await nur_admin(call)
+        _manager(hass).stationen_festlegen(call.data["stationen"])
+
+    async def insel_neu(call: ServiceCall) -> None:
+        await nur_admin(call)
+        _manager(hass).insel_neu()
+
+    hass.services.async_register(DOMAIN, "schatzkarte_festlegen", stationen, schema=SCHEMA_STATIONEN)
+    hass.services.async_register(DOMAIN, "neue_insel", insel_neu, schema=vol.Schema({}))
 
 
 # ----------------------------------------------------------------------- Entitäten
@@ -912,6 +1015,7 @@ def entitaeten(coord: FamilienplanerCoordinator, plattform: str) -> list:
             AktionButton(coord, "rennen_neu", "mdi:flag-variant-outline", lambda m: m.rennen_neu()),
             AktionButton(coord, "dienste_verteilen", "mdi:autorenew", lambda m: m.async_dienste_verteilen()),
             AktionButton(coord, "familienziel_einloesen", "mdi:party-popper", lambda m: m.familienziel_einloesen()),
+            AktionButton(coord, "insel_neu", "mdi:island", lambda m: m.insel_neu()),
         ]
     return []
 

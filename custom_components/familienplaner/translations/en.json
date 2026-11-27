@@ -256,6 +256,20 @@
           "description": "List with titel, punkte, tage (0 = Monday) and optional versatz."
         }
       }
+    },
+    "schatzkarte_festlegen": {
+      "name": "Set treasure map",
+      "description": "Replaces the stations of the family treasure map. Each station is reached with the points the whole family collects together.",
+      "fields": {
+        "stationen": {
+          "name": "Stations",
+          "description": "List with name, belohnung (family reward), punkte (family points needed) and optional emoji."
+        }
+      }
+    },
+    "neue_insel": {
+      "name": "New island",
+      "description": "Starts a new treasure island: the family walks from the beginning again."
     }
   },
   "entity": {
@@ -311,6 +325,9 @@
       },
       "familienziel_einloesen": {
         "name": "Redeem family goal"
+      },
+      "insel_neu": {
+        "name": "New treasure island"
       }
     }
   }

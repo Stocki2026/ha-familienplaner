@@ -16,6 +16,8 @@ no YAML needed. *Deutsch weiter unten.*
 - Meal plan that puts ingredients on the shopping list, family pinboard
 - Alexa morning briefing (weather, events, drivers, birthdays, meals, waste)
 - Chores with points: a family race track, streaks, levels, a reward shop and an automatic chore rotation
+- Big picture tiles for tasks, so children who can't read yet know what to do (tap = done, with confetti)
+- Family treasure map: everyone walks together across an island, each station unlocks a family reward
 - Dashboard strategy `custom:familienplaner`: week view for a wall tablet, a personal view per user for phones,
   family, meals and month – new people appear automatically
 
@@ -82,6 +84,14 @@ Die Ansicht **Aufgaben** erscheint automatisch im Familienplaner-Dashboard:
   Rakete) und Farbe wählt jede Person in der Garage selbst (Fahrzeug antippen). Kinder nur ihr eigenes, Admins alle.
 - **Serien, Level, Familienziel**: ab 3 Tagen am Stück Serien-Bonus, Level nach Gesamtpunkten, gemeinsames Ziel
   (z. B. Pizzaabend), auf das alle Punkte einzahlen.
+- **Große Bilder**: Die Aufgaben jeder Person erscheinen als große Bild-Kacheln, damit auch Kinder, die noch nicht
+  lesen können, wissen, was zu tun ist. Antippen = erledigt (mit Haken, Konfetti und Ton), nochmal antippen =
+  zurück. Das Bild kommt aus einem Emoji am Titelanfang („🦷 Zähne putzen“), einer Zeile `bild: https://…` in der
+  Beschreibung (eigenes Foto) oder wird automatisch passend zum Titel gewählt (Zähne, Zimmer, Müll, Hund, …).
+- **Schatzkarte**: Die ganze Familie läuft gemeinsam über eine Schatzinsel. Alle Punkte aller Personen bringen die
+  Familie weiter. An jeder Station gibt es eine Familien-Belohnung (Push an alle und Eintrag in der Familienliste),
+  am Ende wartet die Schatzkiste. Danach startet „Neue Schatzinsel“ von vorne. Eigene Stationen mit
+  `familienplaner.schatzkarte_festlegen`.
 - **Belohnungs-Shop**: Punkte vom Konto einlösen; in der Familienliste erscheint „🎁 Ben löst ein: …“ für die Eltern.
 - **Haushalts-Rotation**: Spülmaschine, Tisch decken (täglich) und Müll (Mo + Do) wechseln morgens reihum zwischen
   allen Personen mit „Bei der Rotation mitmachen“ und landen mit Punkten in deren Liste (plus Push).
@@ -92,10 +102,23 @@ Voraussetzung: Jede Person hat in der Einrichtung eine **Aufgabenliste** und ein
 Zuordnung zum angemeldeten Benutzer).
 
 Dienste: `familienplaner.punkte_buchen`, `belohnung_einloesen`, `fahrzeug_waehlen`, `rennen_neu_starten`,
-`dienste_verteilen`, `belohnungen_festlegen`, `dienste_festlegen`.
+`dienste_verteilen`, `belohnungen_festlegen`, `dienste_festlegen`, `schatzkarte_festlegen`, `neue_insel`.
 
-Die Karte `custom:rennstrecke-card` funktioniert auch einzeln: `type: custom:rennstrecke-card` (findet das Rennen
-selbst) oder mit `entity: sensor.familienplaner_familien_rennen`.
+```yaml
+action: familienplaner.schatzkarte_festlegen
+data:
+  stationen:
+    - {emoji: "🛝", name: Spielplatz, belohnung: Nachmittag auf dem Spielplatz, punkte: 200}
+    - {emoji: "🏊", name: Schwimmbad, belohnung: Ab ins Schwimmbad, punkte: 600}
+    - {emoji: "🎢", name: Schatzkiste, belohnung: Freizeitpark, punkte: 1500}
+```
+
+Die Karten funktionieren auch einzeln:
+
+- `type: custom:rennstrecke-card` (findet das Rennen selbst) oder mit `entity: sensor.familienplaner_familien_rennen`
+- `type: custom:schatzkarte-card` (findet die Schatzkarte selbst)
+- `type: custom:aufgaben-bilder-card` mit `entity: todo.ben` (optional `farbe`, `ton: false`, `erledigte: false`,
+  `titel`)
 
 ## Dienste
 
