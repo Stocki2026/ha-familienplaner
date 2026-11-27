@@ -189,6 +189,7 @@ class FamilienplanerStrategy extends HTMLElement {
       week: nutzeHacs && (await karteVerfuegbar("week-planner-card")),
       agenda: nutzeHacs && (await karteVerfuegbar("calendar-card-pro")),
     };
+    const schoen = await karteVerfuegbar("familienplaner-kopf");
     const themen = (hass.themes && hass.themes.themes) || {};
     const theme = config.theme || (themen.Familienkalender ? "Familienkalender" : undefined);
     const personen = u.personen || [];
@@ -196,12 +197,17 @@ class FamilienplanerStrategy extends HTMLElement {
     const s = u.sensoren || {};
 
     // ----------------------------------------------------------- Woche (Wand)
-    const kopf = [markdownKopf];
-    if (u.wetter) kopf.push({ type: "weather-forecast", entity: u.wetter, show_current: true, show_forecast: true, forecast_type: "daily" });
-    const extras = [pinnwandKarte(u), countdownKarte(u)].filter(Boolean);
+    const kopf = schoen ? [{ type: "custom:familienplaner-kopf", wetter: u.wetter, muell: s.muell, ferien: s.ferien }] : [markdownKopf];
+    if (u.wetter) kopf.push({ type: "weather-forecast", entity: u.wetter, show_current: !schoen, show_forecast: true, forecast_type: "daily" });
+    const personenKarte = (liste) => schoen
+      ? { type: "custom:familienplaner-personen", personen: liste.filter((p) => p.sensor).map((p) => ({ sensor: p.sensor, name: p.name, farbe: p.farbe, person: p.person })) }
+      : { type: "grid", columns: Math.max(1, Math.min(liste.length, 5)), square: false, cards: liste.filter((p) => p.sensor).map((p) => personKachel(p)) };
+    const extras = schoen
+      ? [s.pinnwand && { type: "custom:familienplaner-pinnwand", entity: s.pinnwand, liste: u.listen && u.listen.pinnwand }, s.countdowns && { type: "custom:familienplaner-countdowns", entity: s.countdowns }].filter(Boolean)
+      : [pinnwandKarte(u), countdownKarte(u)].filter(Boolean);
     const kacheln = [];
-    if (s.muell) kacheln.push({ type: "tile", entity: s.muell, name: "Müllabfuhr", icon: "mdi:trash-can-outline", color: "grey" });
-    if (s.ferien) kacheln.push({ type: "tile", entity: s.ferien, name: "Schulferien", icon: "mdi:beach", color: "cyan" });
+    if (s.muell && !schoen) kacheln.push({ type: "tile", entity: s.muell, name: "Müllabfuhr", icon: "mdi:trash-can-outline", color: "grey" });
+    if (s.ferien && !schoen) kacheln.push({ type: "tile", entity: s.ferien, name: "Schulferien", icon: "mdi:beach", color: "cyan" });
     if (u.ansage) kacheln.push({ type: "tile", entity: u.ansage, name: "Alexa: Was steht heute an?", icon: "mdi:account-voice", color: "primary", hide_state: true, tap_action: { action: "perform-action", perform_action: "button.press", target: { entity_id: u.ansage } } });
 
     const woche = {
@@ -215,7 +221,7 @@ class FamilienplanerStrategy extends HTMLElement {
           type: "vertical-stack",
           cards: [
             { type: "grid", columns: 2, square: false, cards: kopf },
-            { type: "grid", columns: Math.max(1, Math.min(personen.length, 5)), square: false, cards: personen.filter((p) => p.sensor).map((p) => personKachel(p)) },
+            personenKarte(personen),
             wochenKarte(u, hacs),
             { type: "grid", columns: 3, square: false, cards: [...extras, { type: "vertical-stack", cards: [formularKarte(u), ...kacheln] }] },
           ],
@@ -235,7 +241,7 @@ class FamilienplanerStrategy extends HTMLElement {
     ];
     for (const p of personen) {
       const karten = [];
-      if (p.sensor) karten.push(personKachel(p));
+      if (p.sensor) karten.push(schoen ? personenKarte([p]) : personKachel(p));
       karten.push({ type: "heading", heading: "Meine Termine", icon: "mdi:calendar-account" });
       karten.push(agendaKarte(hacs, [...(p.kalender ? [{ entity: p.kalender, color: p.farbe }] : []), ...famKal], undefined, 7));
       if (p.liste) {
@@ -265,7 +271,7 @@ class FamilienplanerStrategy extends HTMLElement {
       sections: personen.map((p) => ({
         type: "grid",
         cards: [
-          { type: "heading", heading: p.name, icon: "mdi:account" },
+          schoen && p.sensor ? personenKarte([p]) : { type: "heading", heading: p.name, icon: "mdi:account" },
           agendaKarte(hacs, [...(p.kalender ? [{ entity: p.kalender, color: p.farbe }] : []), ...famKal], undefined, 7),
         ],
       })),
