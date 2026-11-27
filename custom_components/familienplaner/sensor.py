@@ -145,6 +145,7 @@ class UebersichtSensor(FamilienplanerEntity, SensorEntity):
             "formular": formular,
             "ansage": self._id("button.morgen_ansage"),
             "stil": self._id("select.stil"),
+            "figuren": {p.slug: c.figuren[p.slug] for p in c.personen if p.slug in c.figuren},
         }
 
 

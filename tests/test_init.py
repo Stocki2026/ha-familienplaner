@@ -228,3 +228,20 @@ async def test_stil_umschaltbar(hass: HomeAssistant, basis):
     assert hass.states.get(stil).attributes["options"] == ["klassisch", "zauber"]
     await hass.services.async_call("select", "select_option", {"entity_id": stil, "option": "zauber"}, blocking=True)
     assert hass.states.get(stil).state == "zauber"
+
+
+async def test_figur_setzen(hass: HomeAssistant, basis):
+    u = _sensor(hass, "ubersicht")
+    slug = u.attributes["personen"][0]["slug"]
+    assert u.attributes["figuren"] == {}
+    await hass.services.async_call(
+        "familienplaner", "figur_setzen",
+        {"person": slug, "hut": "kapuze", "tier": "fuchs", "haut": "#f5c8a0", "brille": True}, blocking=True,
+    )
+    await hass.async_block_till_done()
+    figur = _sensor(hass, "ubersicht").attributes["figuren"][slug]
+    assert figur == {"hut": "kapuze", "tier": "fuchs", "haut": "#f5c8a0", "brille": True}
+    await hass.services.async_call("familienplaner", "figur_setzen", {"person": slug, "tier": "adler"}, blocking=True)
+    await hass.async_block_till_done()
+    assert _sensor(hass, "ubersicht").attributes["figuren"][slug]["tier"] == "adler"
+    assert _sensor(hass, "ubersicht").attributes["figuren"][slug]["hut"] == "kapuze"

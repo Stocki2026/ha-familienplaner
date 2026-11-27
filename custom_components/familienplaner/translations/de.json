@@ -349,6 +349,56 @@
           "description": "Späteste Uhrzeit am Tag."
         }
       }
+    },
+    "figur_setzen": {
+      "name": "Zauberer-Figur festlegen",
+      "description": "Speichert das Aussehen der Zauberer-Figur einer Person (Stil Zauberwelt).",
+      "fields": {
+        "person": {
+          "name": "Person",
+          "description": "Kürzel der Person."
+        },
+        "haut": {
+          "name": "Hautton",
+          "description": "Farbe als #rrggbb."
+        },
+        "haar": {
+          "name": "Haarfarbe",
+          "description": "Farbe als #rrggbb."
+        },
+        "augen": {
+          "name": "Augenfarbe",
+          "description": "Farbe als #rrggbb."
+        },
+        "frisur": {
+          "name": "Frisur",
+          "description": "Frisur"
+        },
+        "hut": {
+          "name": "Kopfbedeckung",
+          "description": "Kopfbedeckung"
+        },
+        "stab": {
+          "name": "Zauberstab",
+          "description": "Zauberstab"
+        },
+        "zeichen": {
+          "name": "Zeichen",
+          "description": "Zeichen"
+        },
+        "begleiter": {
+          "name": "Begleittier",
+          "description": "Begleittier"
+        },
+        "tier": {
+          "name": "Tiergestalt",
+          "description": "Tier, in das sich die Figur verwandelt."
+        },
+        "brille": {
+          "name": "Brille",
+          "description": "Brille"
+        }
+      }
     }
   },
   "entity": {
