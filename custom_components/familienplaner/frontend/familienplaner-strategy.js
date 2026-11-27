@@ -17,6 +17,9 @@
  *     #   bewegung: binary_sensor.flur_bewegung
  *     #   helligkeit: number.wandtablet_screen_brightness  (z. B. Fully Kiosk)
  *     #   nacht_von: "22:00"  nacht_bis: "06:00"
+ *     # cockpit:            (Ansicht „Cockpit“: lebendiger Himmel + 24-Stunden-Tagesring)
+ *     #   zuerst: true                     Cockpit als erste Ansicht (Startseite)
+ *     #   polarlicht: false  leistung: sparsam   (false statt Optionen blendet die Ansicht aus)
  */
 
 const VERSION = "0.1.0";
@@ -311,6 +314,27 @@ class FamilienplanerStrategy extends HTMLElement {
     };
 
     const views = [woche, mein, familie];
+
+    // ------------------------------------------------------------------ Cockpit
+    if (config.cockpit !== false && (await karteVerfuegbar("familienplaner-cockpit"))) {
+      const { zuerst, ...optionen } = config.cockpit && typeof config.cockpit === "object" ? config.cockpit : {};
+      const cockpit = {
+        title: "Cockpit",
+        path: "cockpit",
+        icon: "mdi:orbit",
+        type: "panel",
+        theme,
+        cards: [{
+          type: "custom:familienplaner-cockpit",
+          personen: personen.map((p) => ({ slug: p.slug, name: p.name, farbe: p.farbe, person: p.person, sensor: p.sensor, kalender: p.kalender })),
+          familie: { name: u.familie.name, kalender: u.familie.kalender, farbe: u.familie.farbe },
+          wetter: u.wetter,
+          ...optionen,
+        }],
+      };
+      if (zuerst) views.unshift(cockpit);
+      else views.splice(1, 0, cockpit);
+    }
 
     // -------------------------------------------------------------------- Essen
     if (u.kalender && u.kalender.essensplan) {

@@ -24,6 +24,8 @@ no YAML needed. *Deutsch weiter unten.*
 - Events from one sentence: "Ben has football tomorrow at 3pm, Anna drives" (text field, service, Assist voice)
 - Weekly review every Sunday evening: this week done, next week per person, birthdays, waste
 - Your home reacts to the calendar: events on the bus, "next start" and "in an event" sensors, ready-made blueprints
+- Cockpit: a living sky (sun position, clouds, rain, snow, thunderstorms, fog, stars, moon phase, northern lights) above a
+  little house whose windows light up for everyone at home, with a 24-hour day ring per person – tap a person to see only their day
 - Wall tablet mode: photo screensaver with clock and next events, night dimming, wake on motion
 - Dashboard strategy `custom:familienplaner`: week view for a wall tablet, a personal view per user for phones,
   family, meals and month – new people appear automatically
@@ -225,6 +227,38 @@ Fertige Vorlagen (Blueprints) zum Importieren:
   10 Uhr beginnt), Bad vorheizen, Kaffeemaschine an
 - [Wenn ein Termin beginnt/endet](https://my.home-assistant.io/create-link/?redirect=blueprint_import&blueprint_url=https%3A%2F%2Fgithub.com%2FStocki2026%2Fha-familienplaner%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Ffamilienplaner%2Ftermin_ereignis.yaml) – z. B. Heizung runter, Flurlicht an,
   Alarmanlage scharf; filterbar nach Person und Stichwort
+
+## Cockpit
+
+Die Ansicht **Cockpit** (zweiter Reiter im Familienplaner-Dashboard) ist ein Hingucker fürs Wand-Display:
+
+- **Lebendiger Himmel** im Hintergrund, passend zum echten Sonnenstand (`sun.sun`) und Wetter: Morgenrot,
+  blauer Himmel, Abendrot, Sternenhimmel mit Sternschnuppen und Polarlicht, Mond mit echter Mondphase,
+  ziehende Wolken, Regen, Schnee, Blitze bei Gewitter, Nebelbänke. Bei Frost oder Schnee wird die Landschaft weiß.
+- **Das Haus**: In der Landschaft steht ein Haus, in dem so viele Fenster leuchten, wie Personen zu Hause sind.
+  Ist es kalt, raucht der Kamin.
+- **24-Stunden-Tagesring**: ein Ring je Person in ihrer Farbe, jeder Termin ein Bogen mit Symbol, ganztägige
+  Termine als gepunkteter Ring, Tag und Nacht als Sonnenbogen außen, der Zeiger zeigt „jetzt“. Laufende
+  Termine leuchten. Bogen antippen = Details in der Mitte.
+- **Personen antippen**: nur der Tag dieser Person (die anderen Ringe treten zurück), in der Mitte ihr nächster
+  Termin mit Countdown. Gleiche Auswahl wie bei den anderen Karten; nach 3 Minuten geht es zurück zu „Alle“.
+  Kleine Monde kreisen um jede Person, einer je Termin, der heute noch kommt.
+- **Als Nächstes** mit Live-Countdown und Fortschrittsbalken, unten die Wetter-Vorhersage der nächsten Stunden,
+  Sonnenauf- und -untergang, Mondphase und wer zu Hause ist.
+- Auf dem Handy stapelt sich alles untereinander.
+
+```yaml
+strategy:
+  type: custom:familienplaner
+  cockpit:
+    zuerst: true          # Cockpit als Startseite
+    polarlicht: false     # kein Polarlicht
+    leistung: sparsam     # weniger Bilder pro Sekunde (Standard: auto, erkennt langsame Geräte selbst)
+  # cockpit: false        # Ansicht ausblenden
+```
+
+Die Karte geht auch einzeln in jedem Dashboard: `type: custom:familienplaner-cockpit` (liest alles aus der
+Einrichtung). Zum Ausprobieren eines Wetters: `szene: {wetter: snowy, sonne: -12, temperatur: -3}`.
 
 ## Wand-Tablet-Modus
 
