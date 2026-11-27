@@ -1,0 +1,261 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Family Planner",
+        "description": "Choose the shared family calendar and the family lists. You add people afterwards via “Configure”.",
+        "data": {
+          "titel": "Family name",
+          "familien_kalender": "Family calendar",
+          "familien_liste": "Family to-do list",
+          "einkaufsliste": "Shopping list",
+          "wetter": "Weather"
+        }
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Family Planner is already set up."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Family Planner",
+        "menu_options": {
+          "person_neu": "Add person",
+          "person_bearbeiten_waehlen": "Edit person",
+          "person_entfernen": "Remove person",
+          "kalender": "Extra calendars & pinboard",
+          "einstellungen": "Reminders & Alexa"
+        }
+      },
+      "person_neu": {
+        "title": "Add person",
+        "data": {
+          "name": "Name",
+          "farbe": "Color",
+          "person_entity": "Person in Home Assistant (for home/away and the phone view)",
+          "calendar_entity": "Own calendar",
+          "todo_entity": "Own to-do list",
+          "notify_service": "Phone notification (notify.mobile_app_…)",
+          "rotation": "Takes part in the chore rotation"
+        }
+      },
+      "person_bearbeiten_waehlen": {
+        "title": "Edit person",
+        "data": {
+          "slug": "Person"
+        }
+      },
+      "person_bearbeiten": {
+        "title": "Edit {name}",
+        "data": {
+          "name": "Name",
+          "farbe": "Color",
+          "person_entity": "Person in Home Assistant",
+          "calendar_entity": "Own calendar",
+          "todo_entity": "Own to-do list",
+          "notify_service": "Phone notification",
+          "rotation": "Takes part in the chore rotation"
+        }
+      },
+      "person_entfernen": {
+        "title": "Remove person",
+        "data": {
+          "personen": "People"
+        }
+      },
+      "kalender": {
+        "title": "Extra calendars",
+        "description": "All optional. Create local calendars with the “Local Calendar” integration, waste collection and school holidays with “Remote Calendar” (ICS link).",
+        "data": {
+          "besondere_tage": "Special days (birthdays, holidays)",
+          "feiertage": "Public holidays",
+          "muellabfuhr": "Waste collection",
+          "schulferien": "School holidays",
+          "essensplan": "Meal plan",
+          "pinnwand": "Pinboard (to-do list)"
+        }
+      },
+      "einstellungen": {
+        "title": "Reminders & Alexa",
+        "data": {
+          "erinnerung_minuten": "Reminder before events",
+          "morgen_uhrzeit": "Daily overview (morning)",
+          "abend_uhrzeit": "Preview of tomorrow",
+          "muell_uhrzeit": "Waste reminder the evening before",
+          "wetter_hinweis": "Weather hint before events with a location",
+          "fahrzeit": "Travel time warning (Waze Travel Time)",
+          "alexa": "Alexa devices for announcements (notify …_announce)",
+          "alexa_morgen": "Alexa morning briefing",
+          "alexa_uhrzeit": "Time of the morning briefing"
+        }
+      }
+    },
+    "error": {
+      "name_vergeben": "This name already exists."
+    }
+  },
+  "services": {
+    "termin_anlegen": {
+      "name": "Create event",
+      "description": "Creates an event in a person's or the family calendar.",
+      "fields": {
+        "person": {
+          "name": "For whom",
+          "description": "Person key (e.g. anna) or familie for the whole family."
+        },
+        "titel": {
+          "name": "What",
+          "description": "Event title."
+        },
+        "start": {
+          "name": "When",
+          "description": "Start."
+        },
+        "dauer": {
+          "name": "Duration",
+          "description": "Duration in minutes."
+        },
+        "ganztag": {
+          "name": "All day",
+          "description": "All-day event."
+        },
+        "ort": {
+          "name": "Where",
+          "description": "Location (used for weather and travel time hints)."
+        },
+        "fahrer": {
+          "name": "Driver",
+          "description": "Who drives / picks up (person key)."
+        },
+        "benachrichtigen": {
+          "name": "Notify",
+          "description": "Send a push notification to the person."
+        }
+      }
+    },
+    "gericht_planen": {
+      "name": "Plan a meal",
+      "description": "Adds a meal to the meal plan and puts the ingredients on the shopping list.",
+      "fields": {
+        "tag": {
+          "name": "Day",
+          "description": "Which day."
+        },
+        "gericht": {
+          "name": "Meal",
+          "description": "What's for dinner."
+        },
+        "zutaten": {
+          "name": "Ingredients",
+          "description": "One per line or comma separated."
+        }
+      }
+    },
+    "benachrichtigen": {
+      "name": "Notify",
+      "description": "Sends a push notification to one person or everyone.",
+      "fields": {
+        "person": {
+          "name": "To",
+          "description": "Person key or familie for everyone."
+        },
+        "titel": {
+          "name": "Title",
+          "description": "Heading."
+        },
+        "nachricht": {
+          "name": "Message",
+          "description": "Text."
+        }
+      }
+    },
+    "morgen_ansage": {
+      "name": "Morning briefing",
+      "description": "Plays the daily briefing on the Alexa devices and returns the text."
+    },
+    "punkte_buchen": {
+      "name": "Book points",
+      "description": "Adds points for a person (race, account, total and family goal). Admins only.",
+      "fields": {
+        "person": {
+          "name": "Person",
+          "description": "Person slug, e.g. anna."
+        },
+        "punkte": {
+          "name": "Points",
+          "description": "Positive or negative points."
+        },
+        "aufgaben": {
+          "name": "Number of tasks",
+          "description": "Counts towards daily and weekly stats."
+        }
+      }
+    },
+    "belohnung_einloesen": {
+      "name": "Redeem reward",
+      "description": "Deducts the cost from the points account and adds a task to the family list.",
+      "fields": {
+        "belohnung": {
+          "name": "Reward",
+          "description": "What is redeemed."
+        },
+        "kosten": {
+          "name": "Cost",
+          "description": "Points to deduct."
+        },
+        "person": {
+          "name": "Person",
+          "description": "Leave empty for the signed-in person."
+        }
+      }
+    },
+    "fahrzeug_waehlen": {
+      "name": "Choose vehicle",
+      "description": "Change vehicle and colour on the race track. Children only for themselves, admins for everyone.",
+      "fields": {
+        "person": {
+          "name": "Person",
+          "description": "Person slug."
+        },
+        "fahrzeug": {
+          "name": "Vehicle",
+          "description": "Auto, Rennwagen, Motorrad, Pferd, Einhorn, Fahrrad, Traktor or Rakete."
+        },
+        "farbe": {
+          "name": "Colour",
+          "description": "Colour name or hex value."
+        }
+      }
+    },
+    "rennen_neu_starten": {
+      "name": "Start new race",
+      "description": "Resets all race points to 0. Account, level and streaks stay."
+    },
+    "dienste_verteilen": {
+      "name": "Assign chores now",
+      "description": "Assigns today's household chores immediately."
+    },
+    "belohnungen_festlegen": {
+      "name": "Set rewards",
+      "description": "Replaces the reward shop list.",
+      "fields": {
+        "belohnungen": {
+          "name": "Rewards",
+          "description": "List with name, kosten and optional icon."
+        }
+      }
+    },
+    "dienste_festlegen": {
+      "name": "Set chores",
+      "description": "Replaces the household chores of the rotation.",
+      "fields": {
+        "dienste": {
+          "name": "Chores",
+          "description": "List with titel, punkte, tage (0 = Monday) and optional versatz."
+        }
+      }
+    }
+  }
+}
