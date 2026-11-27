@@ -184,9 +184,10 @@ async def test_rotation_und_sieg(hass: HomeAssistant, planer, freezer: FrozenDat
     assert m.daten["sieger"] == "" and m.stand("ben")["rennen"] == 0 and m.stand("ben")["konto"] == 75
 
     # Rotation automatisch zur eingestellten Uhrzeit am nächsten Morgen
-    freezer.move_to(dt_util.parse_datetime("2026-11-30T06:30:00+01:00"))  # Montag
+    # Zeit-Trigger laufen als Hintergrund-Task und werden um bis zu 0,5 s verschoben.
+    freezer.move_to(dt_util.parse_datetime("2026-11-30T06:30:01+01:00"))  # Montag
     async_fire_time_changed(hass)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     items = await hass.services.async_call("todo", "get_items", {"entity_id": "todo.ben"}, blocking=True,
                                            return_response=True)
     assert any(i["summary"].startswith("🗑️") for i in items["todo.ben"]["items"])
