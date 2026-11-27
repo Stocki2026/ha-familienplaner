@@ -19,6 +19,13 @@ from .const import (
     CONF_ALEXA,
     CONF_ALEXA_MORNING,
     CONF_ALEXA_TIME,
+    CONF_CONFLICTS,
+    CONF_WEEKLY,
+    CONF_WEEKLY_TIME,
+    EVENT_CONFLICT,
+    EVENT_END,
+    EVENT_SOON,
+    EVENT_START,
     CONF_EVENING_TIME,
     CONF_FAMILY_CALENDAR,
     CONF_FAMILY_TODO,
@@ -121,6 +128,8 @@ class FamilienplanerCoordinator(DataUpdateCoordinator[PlanerDaten]):
         bei("08:00:00", self._geburtstags_assistent)
         if o.get(CONF_ALEXA_MORNING):
             bei(o[CONF_ALEXA_TIME], self._alexa_automatisch)
+        if o.get(CONF_WEEKLY):
+            bei(o[CONF_WEEKLY_TIME], self._wochenrueckblick_sonntag)
 
     # ------------------------------------------------------------------ Abfragen
     async def _events(self, entities: list[str], start: datetime, dauer: timedelta) -> dict[str, Any]:
@@ -198,6 +207,8 @@ class FamilienplanerCoordinator(DataUpdateCoordinator[PlanerDaten]):
         daten.essen_heute = [t.summary for t in lang_von(CONF_MEAL_CALENDAR) if _am_tag(t, jetzt.date())]
         daten.pinnwand = await self._todo_items(o.get(CONF_PINBOARD_TODO))
 
+        daten.konflikte = logic.konflikte(daten.alle_kurz, jetzt, self._fahrer_slug, self.namen)
+        await self._konflikte_melden(daten.konflikte)
         await self._erinnerungen(jetzt, daten.alle_kurz)
         return daten
 
@@ -252,6 +263,14 @@ class FamilienplanerCoordinator(DataUpdateCoordinator[PlanerDaten]):
             if t.ganztag:
                 continue
             minuten = (t.start - jetzt).total_seconds() / 60  # type: ignore[operator]
+            seit_ende = (jetzt - t.end).total_seconds() / 60  # type: ignore[operator]
+            # Ereignisse für eigene Automationen (Haus reagiert auf den Kalender)
+            if -5 < minuten <= 0 and not self._schon(t.key + "|beginnt"):
+                self._merken(t.key + "|beginnt")
+                self._ereignis(EVENT_START, t)
+            if 0 <= seit_ende < 5 and not self._schon(t.key + "|endet"):
+                self._merken(t.key + "|endet")
+                self._ereignis(EVENT_END, t)
             if minuten <= 0:
                 continue
             uhr = t.start.astimezone(jetzt.tzinfo).strftime("%H:%M")  # type: ignore[union-attr]
@@ -261,6 +280,7 @@ class FamilienplanerCoordinator(DataUpdateCoordinator[PlanerDaten]):
             # 1) Erinnerung X Minuten vorher
             if minuten <= vorlauf and not self._schon(t.key + "|erinnerung"):
                 self._merken(t.key + "|erinnerung")
+                self._ereignis(EVENT_SOON, t, minuten=round(minuten))
                 await self.async_benachrichtigen(t.person, f"⏰ In {round(minuten)} Min: {t.summary}", f"{uhr} Uhr{ort}")
                 if fahrer and fahrer != t.person and t.person != FAMILY:
                     wer = self.namen.get(t.person, t.person)
@@ -286,6 +306,33 @@ class FamilienplanerCoordinator(DataUpdateCoordinator[PlanerDaten]):
                             f"🚗 Jetzt losfahren: {t.summary}",
                             f"Fahrzeit gerade {plan['min']} Min bis {t.location}. Beginn {uhr} Uhr.",
                         )
+
+    @callback
+    def _ereignis(self, typ: str, t: Termin, **extra: Any) -> None:
+        fahrer = self._fahrer_slug(t)
+        self.hass.bus.async_fire(typ, {
+            "person": t.person,
+            "name": self.namen.get(t.person, t.person),
+            "titel": t.summary,
+            "start": t.start.isoformat(),
+            "ende": t.end.isoformat(),
+            "ort": t.location,
+            "fahrer": fahrer,
+            "kalender": t.kalender,
+            **extra,
+        })
+
+    async def _konflikte_melden(self, liste: list[dict[str, Any]]) -> None:
+        for k in liste:
+            key = "konflikt|" + k["key"]
+            if self._schon(key):
+                continue
+            self._merken(key)
+            self.hass.bus.async_fire(EVENT_CONFLICT, {x: k[x] for x in ("art", "person", "a", "b", "start", "text")})
+            if self.opt.get(CONF_CONFLICTS):
+                start = dt_util.as_local(datetime.fromisoformat(k["start"]))
+                wann = f"{logic.WOCHENTAGE_KURZ[start.weekday()]} {start:%d.%m. %H:%M}"
+                await self.async_benachrichtigen(k["person"], "⚠️ Terminkonflikt", f"{k['text']} ({wann}).")
 
     async def _wetter_hinweis(self, t: Termin, fahrer: str) -> None:
         wetter = self.opt.get(CONF_WEATHER)
@@ -393,6 +440,47 @@ class FamilienplanerCoordinator(DataUpdateCoordinator[PlanerDaten]):
             elif tage == 0:
                 await self.async_benachrichtigen(FAMILY, f"🎉 Heute: {t.summary}", "Nicht vergessen zu gratulieren!")
 
+    async def _wochenrueckblick_sonntag(self, now: datetime) -> None:
+        if dt_util.as_local(now).weekday() == 6:
+            await self.async_wochenrueckblick()
+
+    async def async_wochenrueckblick(self) -> dict[str, str]:
+        """Sonntagabend: Rückblick auf diese Woche und Vorschau auf die nächste, pro Person."""
+        o = self.opt
+        tz = dt_util.get_default_time_zone()
+        heute = dt_util.start_of_local_day()
+        montag = heute + timedelta(days=7 - heute.weekday())
+        vorher = await self._events(self._personen_kalender(), montag - timedelta(days=7), timedelta(days=7))
+        naechste = await self._events(
+            self._personen_kalender() + [o.get(CONF_SPECIAL_CALENDAR), o.get(CONF_WASTE_CALENDAR)],
+            montag, timedelta(days=7),
+        )
+        pro_vorher = self._termine_personen(vorher)
+        pro = self._termine_personen(naechste)
+        familie = pro.get(FAMILY, [])
+        alle = [t for liste in pro.values() for t in liste]
+        konflikte = logic.konflikte(alle, montag, self._fahrer_slug, self.namen)
+        extra: list[str] = []
+        for t in logic.parse_events(naechste, o.get(CONF_SPECIAL_CALENDAR) or "", "", tz):
+            extra.append(f"🎉 {logic.WOCHENTAGE_KURZ[_tag(t).weekday()]}: {t.summary}")
+        for name in dict.fromkeys(t.summary for t in logic.parse_events(naechste, o.get(CONF_WASTE_CALENDAR) or "", "", tz)):
+            tage = [logic.WOCHENTAGE_KURZ[_tag(t).weekday()] for t in logic.parse_events(naechste, o.get(CONF_WASTE_CALENDAR) or "", "", tz) if t.summary == name]
+            extra.append(f"🗑️ {name}: {', '.join(tage)}")
+        texte: dict[str, str] = {}
+        for p in self.personen:
+            eigene = pro.get(p.slug, []) + familie
+            geschafft = len([t for t in pro_vorher.get(p.slug, []) + pro_vorher.get(FAMILY, []) if not t.ganztag])
+            zeilen = [f"Diese Woche: {geschafft} {'Termin' if geschafft == 1 else 'Termine'} geschafft 💪"]
+            vorschau = logic.wochen_vorschau(eigene, montag.date(), tz, self.namen, mit_person=False)
+            zeilen += vorschau or ["Nächste Woche ist noch frei 😎"]
+            zeilen += extra
+            zeilen += [f"⚠️ {k['text']}" for k in konflikte if k["person"] == p.slug]
+            text = "\n".join(zeilen)
+            texte[p.slug] = text
+            anzahl = len([t for t in eigene if not t.ganztag])
+            await self.async_benachrichtigen(p.slug, f"📅 Deine Woche: {anzahl} {'Termin' if anzahl == 1 else 'Termine'}", text)
+        return texte
+
     async def _alexa_automatisch(self, _now: datetime) -> None:
         zuhause = [p for p in self.personen if p.person_entity and self.hass.states.is_state(p.person_entity, "home")]
         if zuhause or not any(p.person_entity for p in self.personen):
@@ -435,6 +523,10 @@ def formular_standard() -> dict[str, Any]:
     naechste_stunde = (dt_util.now() + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
     return {"person": FAMILY, "fahrer": "niemand", "titel": "", "ort": "", "start": naechste_stunde,
             "dauer": 60, "ganztag": False}
+
+
+def _tag(t: Termin):
+    return dt_util.as_local(t.start).date() if isinstance(t.start, datetime) else t.start
 
 
 def _am_tag(t: Termin, tag) -> bool:

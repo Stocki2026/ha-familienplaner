@@ -198,3 +198,13 @@ async def test_geburtstags_assistent_und_muell(hass: HomeAssistant, basis, freez
     await hass.async_block_till_done()
     assert basis["anna"][0].data["title"].startswith("☀️ Dein Tag heute (1 Termin)")
     assert "11:00 Zahnarzt" in basis["anna"][0].data["message"]
+
+
+async def test_frontend_auch_ohne_eintrag(hass: HomeAssistant, enable_custom_integrations):
+    """Die Strategie muss geladen werden, selbst wenn kein (funktionierender) Eintrag existiert."""
+    from homeassistant.components.frontend import DATA_EXTRA_MODULE_URL
+    from homeassistant.setup import async_setup_component
+
+    assert await async_setup_component(hass, DOMAIN, {})
+    urls = list(hass.data[DATA_EXTRA_MODULE_URL].urls)
+    assert any("/familienplaner_static/familienplaner-strategy.js?v=" in u for u in urls), urls

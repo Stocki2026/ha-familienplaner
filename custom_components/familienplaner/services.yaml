@@ -71,6 +71,16 @@ benachrichtigen:
           multiline: true
 morgen_ansage:
 
+termin_aus_satz:
+  fields:
+    text:
+      required: true
+      example: "Ben hat Dienstag um 16 Uhr Fußball, Anna fährt"
+      selector:
+        text:
+
+wochenrueckblick:
+
 punkte_buchen:
   fields:
     person:

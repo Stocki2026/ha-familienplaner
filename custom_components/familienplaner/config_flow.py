@@ -28,6 +28,9 @@ from .const import (
     CONF_SPECIAL_CALENDAR,
     CONF_TITLE,
     CONF_TRAVEL_TIME,
+    CONF_CONFLICTS,
+    CONF_WEEKLY,
+    CONF_WEEKLY_TIME,
     CONF_WASTE_CALENDAR,
     CONF_WASTE_TIME,
     CONF_WEATHER,
@@ -227,6 +230,9 @@ class FamilienplanerOptionsFlow(OptionsFlow):
                 vol.Required(CONF_WASTE_TIME, default=o[CONF_WASTE_TIME]): selector.TimeSelector(),
                 vol.Required(CONF_WEATHER_HINT, default=o[CONF_WEATHER_HINT]): selector.BooleanSelector(),
                 vol.Required(CONF_TRAVEL_TIME, default=o[CONF_TRAVEL_TIME]): selector.BooleanSelector(),
+                vol.Required(CONF_CONFLICTS, default=o[CONF_CONFLICTS]): selector.BooleanSelector(),
+                vol.Required(CONF_WEEKLY, default=o[CONF_WEEKLY]): selector.BooleanSelector(),
+                vol.Required(CONF_WEEKLY_TIME, default=o[CONF_WEEKLY_TIME]): selector.TimeSelector(),
                 vol.Optional(CONF_ALEXA, default=o.get(CONF_ALEXA) or []): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain="notify", multiple=True)
                 ),

@@ -1,0 +1,48 @@
+blueprint:
+  name: "Familienplaner: Wenn ein Termin beginnt, endet oder gleich ansteht"
+  description: >-
+    Reagiert auf Termine aus dem Familienplaner. Beispiele: Heizung runter, wenn alle beim Termin sind;
+    Licht im Flur an, wenn ein Termin endet; Alarmanlage scharf.
+    In den Aktionen stehen trigger.event.data.titel, .name, .ort, .start, .ende und .fahrer zur Verfügung.
+    / Reacts to Family Planner events (event starts, ends or is coming up).
+  domain: automation
+  source_url: https://github.com/Stocki2026/ha-familienplaner/blob/main/blueprints/automation/familienplaner/termin_ereignis.yaml
+  input:
+    ereignis:
+      name: Wann?
+      default: familienplaner_termin_beginnt
+      selector:
+        select:
+          options:
+            - label: Termin beginnt
+              value: familienplaner_termin_beginnt
+            - label: Termin endet
+              value: familienplaner_termin_endet
+            - label: Termin steht gleich an (Erinnerungszeit)
+              value: familienplaner_termin_bald
+            - label: Terminkonflikt erkannt
+              value: familienplaner_konflikt
+    person:
+      name: Nur für diese Person (Kürzel, z. B. anna; leer = alle)
+      default: ""
+      selector: {text: {}}
+    stichwort:
+      name: Nur wenn der Titel dieses Wort enthält (leer = alle)
+      default: ""
+      selector: {text: {}}
+    aktionen:
+      name: Aktionen
+      selector: {action: {}}
+mode: queued
+variables:
+  person: !input person
+  stichwort: !input stichwort
+trigger:
+  - trigger: event
+    event_type: !input ereignis
+condition:
+  - condition: template
+    value_template: >-
+      {{ (person == '' or trigger.event.data.person == person | lower)
+         and (stichwort == '' or stichwort | lower in (trigger.event.data.titel | default(trigger.event.data.a, true) | lower)) }}
+action: !input aktionen
