@@ -135,6 +135,10 @@
         "benachrichtigen": {
           "name": "Notify",
           "description": "Send a push notification to the person."
+        },
+        "rrule": {
+          "name": "Repeat",
+          "description": "Recurrence rule, e.g. FREQ=WEEKLY or FREQ=WEEKLY;INTERVAL=2."
         }
       }
     },
@@ -317,6 +321,32 @@
         "aufgaben": {
           "name": "Tasks",
           "description": "List with titel (emoji first = picture), punkte, bereich (kueche, putzen, waesche, ordnung, draussen, tiere) and optional key."
+        }
+      }
+    },
+    "freie_zeit": {
+      "name": "When is everyone free?",
+      "description": "Finds time slots in which none of the chosen people has an event.",
+      "fields": {
+        "tage": {
+          "name": "Days",
+          "description": "How many days ahead to search."
+        },
+        "dauer": {
+          "name": "Minimum length",
+          "description": "Minimum length of a free slot."
+        },
+        "personen": {
+          "name": "People",
+          "description": "Comma separated (e.g. anna, ben). Empty = everyone."
+        },
+        "von": {
+          "name": "From",
+          "description": "Earliest time of day."
+        },
+        "bis": {
+          "name": "Until",
+          "description": "Latest time of day."
         }
       }
     }

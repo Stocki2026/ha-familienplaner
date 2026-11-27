@@ -33,7 +33,7 @@ def _fahrer(t):
 def test_satz_verstehen():
     r = logic.termin_aus_satz("Ben hat Dienstag um 4 Fußball, Anna fährt", NAMEN, JETZT)
     assert r == {"person": "ben", "titel": "Fußball", "start": datetime(2026, 12, 1, 16, 0, tzinfo=TZ),
-                 "ganztag": False, "fahrer": "anna"}
+                 "ganztag": False, "fahrer": "anna", "ort": "", "dauer": 60, "rrule": ""}
     r = logic.termin_aus_satz("Anna Zahnarzt morgen 9:30 Uhr", NAMEN, JETZT)
     assert (r["person"], r["titel"], r["start"]) == ("anna", "Zahnarzt", datetime(2026, 11, 28, 9, 30, tzinfo=TZ))
     r = logic.termin_aus_satz("Wir gehen am 24.12. zu Oma", NAMEN, JETZT)
@@ -43,6 +43,20 @@ def test_satz_verstehen():
     assert logic.termin_aus_satz("Ben football tomorrow at 3pm", NAMEN, JETZT)["start"].hour == 15
     assert logic.termin_aus_satz("Kino am 5. Dezember um 20 Uhr, fährt Ben", NAMEN, JETZT)["fahrer"] == "ben"
     assert logic.termin_aus_satz("morgen", NAMEN, JETZT) is None
+
+
+def test_satz_wiederholung_dauer_ort():
+    r = logic.termin_aus_satz("Ben hat jeden Dienstag von 4 bis halb 6 Fußball im Sportpark, Anna fährt", NAMEN, JETZT)
+    assert (r["titel"], r["ort"], r["dauer"], r["rrule"], r["fahrer"]) == ("Fußball", "Sportpark", 90, "FREQ=WEEKLY", "anna")
+    assert r["start"] == datetime(2026, 12, 1, 16, 0, tzinfo=TZ)
+    r = logic.termin_aus_satz("Zahnarzt Anna Montag 9 Uhr für 30 Minuten @ Praxis am Markt", NAMEN, JETZT)
+    assert (r["ort"], r["dauer"], r["start"].hour) == ("Praxis am Markt", 30, 9)
+    assert logic.termin_aus_satz("Carla Klavier alle 2 Wochen Donnerstag um 15 Uhr", NAMEN, JETZT)["rrule"] == "FREQ=WEEKLY;INTERVAL=2"
+    assert logic.termin_aus_satz("Ben hat dienstags um 16 Uhr Fußball", NAMEN, JETZT)["rrule"] == "FREQ=WEEKLY"
+    assert logic.termin_aus_satz("Anna Yoga morgen 18-19:30 Uhr", NAMEN, JETZT)["dauer"] == 90
+    r = logic.termin_aus_satz("Elternabend in der Schule nächsten Freitag um 19 Uhr", NAMEN, JETZT)
+    assert (r["titel"], r["ort"], r["start"].day) == ("Elternabend", "Schule", 4)
+    assert logic.termin_aus_satz("Wir gehen am 24.12. zu Oma", NAMEN, JETZT)["ort"] == ""
 
 
 def test_konflikte():
@@ -167,3 +181,39 @@ async def test_satz_nicht_verstanden(hass: HomeAssistant, basis):  # noqa: F811
     antwort = await hass.services.async_call(DOMAIN, "termin_aus_satz", {"text": "morgen"}, blocking=True,
                                              return_response=True)
     assert antwort["verstanden"] is False and "nicht verstanden" in antwort["antwort"]
+
+
+def test_freie_zeiten():
+    from datetime import time
+
+    termine = [_t("Zahnarzt", "anna", 10), _t("Fußball", "ben", 14, 120), _t("Geburtstag", "anna", 0)]
+    termine[2] = Termin("Geburtstag", JETZT.date().replace(day=28), JETZT.date().replace(day=29))  # ganztägig blockiert nicht
+    slots = logic.freie_zeiten(termine, datetime(2026, 11, 28, 7, 0, tzinfo=TZ), 1, time(8), time(20), 60)
+    assert [x["text"] for x in slots] == ["Sa 28.11. 08:00–10:00", "Sa 28.11. 11:00–14:00", "Sa 28.11. 16:00–20:00"]
+    # Am ersten Tag erst ab jetzt (nächste Viertelstunde)
+    slots = logic.freie_zeiten([], datetime(2026, 11, 28, 19, 10, tzinfo=TZ), 1, time(8), time(20), 60)
+    assert slots == []
+    assert logic.rrule_text("FREQ=WEEKLY;INTERVAL=2") == "alle 2 Wochen"
+
+
+async def test_wiederkehrend_und_freie_zeit(hass: HomeAssistant, basis):  # noqa: F811
+    antwort = await hass.services.async_call(
+        DOMAIN, "termin_aus_satz", {"text": "Ben hat jeden Montag von 16 bis 17:30 Fußball im Sportpark"},
+        blocking=True, return_response=True,
+    )
+    assert antwort["verstanden"] and "wöchentlich" in antwort["antwort"]
+    ev = await hass.services.async_call(
+        "calendar", "get_events", {"entity_id": "calendar.ben", "duration": {"days": 21}},
+        blocking=True, return_response=True,
+    )
+    termine = ev["calendar.ben"]["events"]
+    assert [e["start"][:16] for e in termine] == ["2026-11-30T16:00", "2026-12-07T16:00", "2026-12-14T16:00"]
+    assert termine[0]["location"] == "Sportpark" and termine[0]["end"][:16] == "2026-11-30T17:30"
+
+    frei = await hass.services.async_call(
+        DOMAIN, "freie_zeit", {"tage": 4, "personen": "Ben", "von": "15:00:00", "bis": "19:00:00"},
+        blocking=True, return_response=True,
+    )
+    texte = [s["text"] for s in frei["slots"]]
+    assert "Mo 30.11. 15:00–16:00" in texte and "Mo 30.11. 17:30–19:00" in texte
+    assert "Freie Zeit für Ben" in frei["antwort"]

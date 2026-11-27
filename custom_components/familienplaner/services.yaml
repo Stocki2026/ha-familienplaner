@@ -37,6 +37,10 @@ termin_anlegen:
       default: true
       selector:
         boolean:
+    rrule:
+      example: "FREQ=WEEKLY"
+      selector:
+        text:
 gericht_planen:
   fields:
     tag:
@@ -80,6 +84,29 @@ termin_aus_satz:
         text:
 
 wochenrueckblick:
+
+freie_zeit:
+  fields:
+    tage:
+      default: 7
+      selector:
+        number: {min: 1, max: 31, mode: box}
+    dauer:
+      default: 60
+      selector:
+        number: {min: 15, max: 600, step: 15, unit_of_measurement: min, mode: box}
+    personen:
+      example: "anna, ben"
+      selector:
+        text:
+    von:
+      default: "08:00:00"
+      selector:
+        time:
+    bis:
+      default: "20:00:00"
+      selector:
+        time:
 
 punkte_buchen:
   fields:

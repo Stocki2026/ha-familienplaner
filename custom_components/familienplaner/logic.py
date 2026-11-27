@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time as time_, timedelta
 import re
 from typing import Any, Iterable
 
@@ -339,6 +339,7 @@ _FUELL = {
     "nächsten", "naechsten", "kommenden", "next", "trag", "trage", "ein,", "bitte", "please", "add",
     "für", "fuer", "for", "o'clock",
 }
+_ZEITWORTE = {"nächsten", "naechsten", "nächste", "kommenden", "next", "diese", "diesen", "this"}
 _FAMILIE_WORTE = {"wir", "familie", "alle", "uns", "we", "family", "everyone"}
 
 
@@ -360,6 +361,44 @@ def termin_aus_satz(text: str, namen: dict[str, str], jetzt: datetime) -> dict[s
             fahrer = slug
             low = low[: m.start()] + " " + low[m.end():]
             break
+
+    # Ort ausdrücklich: "@ Sportplatz", "Ort: Turnhalle"
+    ort = ""
+    m = re.search(r"(?:@|\bort:)\s*([^,@]+?)\s*(?:,|$)", low.rstrip())
+    if m:
+        ort = m.group(1).strip()
+        low = low[: m.start()] + " " + low[m.end():]
+
+    # Wiederholung
+    rrule = ""
+    regeln = [
+        (r"\b(werktags|jeden werktag|an werktagen|every weekday|weekdays)\b", "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR"),
+        (r"\b(täglich|taeglich|jeden tag|every day|daily)\b", "FREQ=DAILY"),
+        (r"\b(?:alle|every)\s+(\d)\s+(?:wochen|weeks)\b", "FREQ=WEEKLY;INTERVAL={n}"),
+        (r"\b(jede woche|wöchentlich|woechentlich|weekly|every week)\b", "FREQ=WEEKLY"),
+        (r"\b(jeden monat|monatlich|monthly|every month)\b", "FREQ=MONTHLY"),
+        (r"\b(jedes jahr|jährlich|jaehrlich|yearly|every year)\b", "FREQ=YEARLY"),
+        (r"\b(?:jeden|jede|immer|every)\s+(?=(?:" + "|".join(_TAGE) + r")s?\b)", "FREQ=WEEKLY"),
+        (r"\b(?:" + "|".join(_TAGE) + r")s\b(?=.*)", "FREQ=WEEKLY"),  # "dienstags"
+    ]
+    for muster, regel in regeln:
+        m = re.search(muster, low)
+        if m:
+            n = next((g for g in m.groups() if g and g.isdigit()), "2") if "{n}" in regel else ""
+            rrule = regel.replace("{n}", n)
+            if regel == "FREQ=WEEKLY" and m.group(0).rstrip().endswith("s") and m.group(0).strip().rstrip("s") in _TAGE:
+                low = low[: m.start()] + " " + m.group(0).strip()[:-1] + " " + low[m.end():]  # "dienstags" -> "dienstag"
+            else:
+                low = low[: m.start()] + " " + low[m.end():]
+            break
+
+    # Dauer: "für 2 Stunden", "90 Minuten", "1,5 h"
+    dauer = 0
+    m = re.search(r"\b(?:für\s+|for\s+)?(\d+(?:[,.]\d+)?)\s*(stunden|stunde|std|h|hours|hour|minuten|min|minutes)\b", low)
+    if m:
+        wert = float(m.group(1).replace(",", "."))
+        dauer = round(wert * 60) if m.group(2).startswith(("s", "h")) else round(wert)
+        low = low[: m.start()] + " " + low[m.end():]
 
     # Person
     person = "familie"
@@ -412,16 +451,33 @@ def termin_aus_satz(text: str, namen: dict[str, str], jetzt: datetime) -> dict[s
                 datum_gefunden = True
                 break
 
-    # Uhrzeit
+    # Uhrzeit ("halb 5" -> 4:30, gilt auch in Zeitspannen)
+    low = re.sub(r"\bhalb\s+(\d{1,2})\b", lambda h: f"{(int(h.group(1)) - 1) % 24}:30", low)
     zeit: tuple[int, int] | None = None
-    m = re.search(r"\bhalb\s+(\d{1,2})\b", low)
-    if m:
+    nachmittag = not re.search(r"\b(früh|frueh|morgens|vormittags|morning)\b", low)
+
+    def _pm(stunde: int) -> int:
+        return stunde + 12 if nachmittag and 1 <= stunde <= 7 else stunde
+
+    # Zeitspanne: "von 16 bis 17:30", "16-18 Uhr"
+    m = re.search(r"\b(?:von\s+|from\s+)?(\d{1,2})(?:[:.](\d{2}))?\s*(?:uhr\s*)?(?:-|–|bis|to|until)\s*(\d{1,2})(?:[:.](\d{2}))?\s*(?:uhr)?\b", low)
+    if m and int(m.group(1)) < 24 and int(m.group(3)) < 24:
+        s_h, s_m = _pm(int(m.group(1))), int(m.group(2) or 0)
+        e_h, e_m = _pm(int(m.group(3))), int(m.group(4) or 0)
+        if (e_h, e_m) > (s_h, s_m):
+            zeit = (s_h, s_m)
+            dauer = (e_h * 60 + e_m) - (s_h * 60 + s_m)
+            low = low[: m.start()] + " " + low[m.end():]
+    m = None if zeit else re.search(r"\bhalb\s+(\d{1,2})\b", low)
+    if zeit:
+        pass
+    elif m:
         stunde = (int(m.group(1)) - 1) % 24
         if 1 <= stunde <= 7 and not re.search(r"\b(früh|frueh|morgens|morning)\b", low):
             stunde += 12
         zeit = (stunde, 30)
     else:
-        m = re.search(r"\b(?:um|at|ab)\s+(\d{1,2})(?:[:.](\d{2}))?\s*(uhr|am|pm)?\b|\b(\d{1,2})(?:[:.](\d{2}))?\s*(uhr|am|pm)\b|\b(\d{1,2})[:](\d{2})\b", low)
+        m = re.search(r"\b(?:um|at|ab|gegen)\s+(\d{1,2})(?:[:.](\d{2}))?\s*(uhr|am|pm)?\b|\b(\d{1,2})(?:[:.](\d{2}))?\s*(uhr|am|pm)\b|\b(\d{1,2})[:](\d{2})\b", low)
         if m:
             g = m.groups()
             h, mi, zusatz = (g[0], g[1], g[2]) if g[0] else ((g[3], g[4], g[5]) if g[3] else (g[6], g[7], None))
@@ -434,13 +490,24 @@ def termin_aus_satz(text: str, namen: dict[str, str], jetzt: datetime) -> dict[s
                 zeit = (stunde, minute)
     if m:
         low = low[: m.start()] + " " + low[m.end():]
-    low = re.sub(r"\b(früh|frueh|morgens|nachmittags|abends|morning|afternoon|evening)\b", " ", low)
+    low = re.sub(r"\b(früh|frueh|morgens|vormittags|nachmittags|abends|morning|afternoon|evening)\b", " ", low)
+
+    # Ort am Ende: "… im Sportpark", "… in der Schule", "… bei Oma"
+    if not ort:
+        rest_text = re.sub(r"\s+", " ", low).strip(" ,")
+        m = re.search(r"(?:^|\s)(?:im|in der|in dem|in|bei der|beim|bei|at the|at)\s+([\wäöüß][\wäöüß\- ]*)$", rest_text)
+        if m and re.sub(r"(?:^|\s)(?:" + "|".join(sorted(_FUELL, key=len, reverse=True)) + r")(?=\s|$)", " ", rest_text[: m.start()]).strip():
+            ort = " ".join(w for w in m.group(1).split() if w not in _FUELL and w not in _ZEITWORTE)
+            low = rest_text[: m.start()] if ort else low
 
     # Rest = Titel (Originalschreibweise übernehmen)
     rest = [w for w in re.findall(r"[\wäöüßÄÖÜ'\-]+", low) if w not in _FUELL]
     if not rest:
         return None
     original = {w.lower(): w for w in re.findall(r"[\wäöüßÄÖÜ'\-]+", text)}
+    if ort:
+        ort = " ".join(original.get(w, w) for w in ort.split())
+        ort = ort[0].upper() + ort[1:]
     titel = " ".join(original.get(w, w) for w in rest)
     titel = titel[0].upper() + titel[1:]
 
@@ -449,7 +516,8 @@ def termin_aus_satz(text: str, namen: dict[str, str], jetzt: datetime) -> dict[s
         start: datetime | date = datetime(tag.year, tag.month, tag.day, zeit[0], zeit[1], tzinfo=tz)
     else:
         start = tag
-    return {"person": person, "titel": titel, "start": start, "ganztag": zeit is None, "fahrer": fahrer}
+    return {"person": person, "titel": titel, "start": start, "ganztag": zeit is None, "fahrer": fahrer,
+            "ort": ort, "dauer": dauer or 60, "rrule": rrule}
 
 
 # ------------------------------------------------------------ Wochenrückblick
@@ -472,3 +540,60 @@ def wochen_vorschau(termine: list[Termin], montag: date, tz, namen: dict[str, st
         if am_tag:
             zeilen.append(f"{WOCHENTAGE_KURZ[tag.weekday()]} {tag.day}.{tag.month}.: " + ", ".join(am_tag))
     return zeilen
+
+
+_TAG_KURZ = {"MO": "Montag", "TU": "Dienstag", "WE": "Mittwoch", "TH": "Donnerstag", "FR": "Freitag", "SA": "Samstag", "SU": "Sonntag"}
+
+
+def rrule_text(rrule: str) -> str:
+    """FREQ=WEEKLY;INTERVAL=2 -> 'alle 2 Wochen'."""
+    teile = dict(t.split("=", 1) for t in rrule.upper().split(";") if "=" in t)
+    n = int(teile.get("INTERVAL", "1") or 1)
+    freq = teile.get("FREQ", "")
+    if teile.get("BYDAY") == "MO,TU,WE,TH,FR":
+        return "werktags"
+    namen = {"DAILY": ("täglich", "Tage"), "WEEKLY": ("wöchentlich", "Wochen"),
+             "MONTHLY": ("monatlich", "Monate"), "YEARLY": ("jährlich", "Jahre")}
+    einzeln, mehr = namen.get(freq, ("wiederkehrend", ""))
+    return einzeln if n == 1 else f"alle {n} {mehr}"
+
+
+def freie_zeiten(termine: list[Termin], start: datetime, tage: int, von: time_, bis: time_,
+                 min_minuten: int = 60, tz=None) -> list[dict[str, Any]]:
+    """Freie Zeitfenster (in denen niemand der übergebenen Termine belegt ist), pro Tag zwischen von und bis.
+
+    Ganztägige Termine (Geburtstage, Feiertage) blockieren nicht.
+    """
+    tz = tz or start.tzinfo
+    belegt = sorted(
+        ((t.start.astimezone(tz), t.end.astimezone(tz)) for t in termine if not t.ganztag),  # type: ignore[union-attr]
+        key=lambda x: x[0],
+    )
+    ergebnis: list[dict[str, Any]] = []
+    for i in range(tage):
+        tag = (start + timedelta(days=i)).date()
+        fenster_start = datetime.combine(tag, von, tzinfo=tz)
+        fenster_ende = datetime.combine(tag, bis, tzinfo=tz)
+        if i == 0:
+            # ab der nächsten Viertelstunde
+            jetzt = start.astimezone(tz)
+            jetzt = jetzt.replace(second=0, microsecond=0) + timedelta(minutes=(15 - jetzt.minute % 15) % 15)
+            fenster_start = max(fenster_start, jetzt)
+        cursor = fenster_start
+        for s, e in belegt:
+            if e <= cursor or s >= fenster_ende:
+                continue
+            if s > cursor and (s - cursor).total_seconds() / 60 >= min_minuten:
+                ergebnis.append(_slot(cursor, s))
+            cursor = max(cursor, e)
+            if cursor >= fenster_ende:
+                break
+        if cursor < fenster_ende and (fenster_ende - cursor).total_seconds() / 60 >= min_minuten:
+            ergebnis.append(_slot(cursor, fenster_ende))
+    return ergebnis
+
+
+def _slot(s: datetime, e: datetime) -> dict[str, Any]:
+    minuten = int((e - s).total_seconds() // 60)
+    text = f"{WOCHENTAGE_KURZ[s.weekday()]} {s.day}.{s.month}. {s:%H:%M}–{e:%H:%M}"
+    return {"start": s.isoformat(), "ende": e.isoformat(), "minuten": minuten, "text": text}

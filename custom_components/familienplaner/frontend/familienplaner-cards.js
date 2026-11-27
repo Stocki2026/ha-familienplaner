@@ -117,6 +117,37 @@ if (!window.familienplaner.personSetzen) {
   fp._aktivitaet();
 }
 
+/* ------------------------------------------------- Symbole je Termin (Stichwort -> Emoji)
+ * window.familienplaner.symbol("Fußball") -> "⚽"
+ */
+const SYMBOLE = [
+  [/zahn|dentist/i, "🦷"], [/impf|vaccin/i, "💉"], [/arzt|doktor|doctor|praxis|klinik|kranken|physio|therapie/i, "🩺"],
+  [/geburtstag|birthday|🎂/i, "🎂"], [/hochzeit|wedding/i, "💍"], [/party|feier|fest\b|celebrat/i, "🎉"],
+  [/fu(ß|ss)ball|soccer|football/i, "⚽"], [/handball|basketball|volleyball/i, "🏐"], [/schwimm|swim/i, "🏊"],
+  [/tennis|badminton/i, "🎾"], [/reit|pferd|pony|horse|riding/i, "🐴"], [/tanz|ballett|dance|ballet/i, "🩰"],
+  [/yoga|pilates|meditat/i, "🧘"], [/turnen|gym|fitness|training|sport|laufen|joggen|run\b/i, "🤸"],
+  [/klavier|piano/i, "🎹"], [/gitarre|guitar/i, "🎸"], [/geige|violin|cello/i, "🎻"], [/musik|music|chor|choir|band\b|flöte|flute/i, "🎵"],
+  [/elternabend|elterngespr|schule|school|unterricht|lernen|nachhilfe|hausaufgab|klassen/i, "🏫"], [/kita|kindergarten|krippe|daycare/i, "🧸"],
+  [/arbeit|büro|buero|work|meeting|termin mit chef|office|dienst\b|schicht|shift/i, "💼"],
+  [/einkauf|shopping|supermarkt|markt\b|groceries/i, "🛒"], [/essen|dinner|lunch|frühstück|brunch|restaurant|grill|pizza|kochen/i, "🍽️"],
+  [/kino|cinema|film|movie/i, "🎬"], [/theater|musical|konzert|concert/i, "🎭"], [/museum|ausstellung|exhibit/i, "🏛️"], [/zoo|tierpark/i, "🦁"],
+  [/urlaub|ferien|holiday|vacation|strand|beach/i, "🏖️"], [/flug|flight|flughafen|airport/i, "✈️"], [/zug|bahn|train/i, "🚆"],
+  [/werkstatt|tüv|tuev|reifen|auto|car service|inspektion/i, "🚗"], [/friseur|haircut|haare/i, "💇"],
+  [/müll|muell|tonne|abfall|waste|recycl|gelber sack/i, "🗑️"], [/oma|opa|grandma|grandpa|besuch|visit/i, "👵"],
+  [/spielplatz|playdate|spielen|verabredung/i, "🛝"], [/bibliothek|bücherei|library|lesen|buch/i, "📚"],
+  [/tierarzt|vet\b|hund|katze|dog|cat\b/i, "🐶"], [/putzen|aufräumen|cleaning|wäsche|laundry/i, "🧹"],
+  [/ausflug|wandern|hike|trip|camping/i, "🥾"], [/laterne|martin/i, "🏮"], [/weihnacht|christmas|advent|nikolaus/i, "🎄"],
+  [/ostern|easter/i, "🐣"], [/halloween/i, "🎃"], [/kirche|church|gottesdienst|taufe/i, "⛪"], [/bank|steuer|tax|amt\b|behörde/i, "🏦"],
+  [/telefon|anruf|call\b|zoom|teams/i, "📞"], [/garten|garden/i, "🌱"], [/schlafen|übernacht|sleepover/i, "🛏️"],
+];
+window.familienplaner = window.familienplaner || {};
+window.familienplaner.symbol = (titel) => {
+  const text = String(titel || "");
+  for (const [muster, emoji] of SYMBOLE) if (muster.test(text)) return emoji;
+  return "";
+};
+const symbol = (titel) => window.familienplaner.symbol(titel);
+
 const BASIS_CSS = `
   :host { display: block;
     --fp-radius: var(--familienplaner-radius, 22px);
@@ -493,7 +524,7 @@ class FamilienplanerFokus extends FpBasis {
       const balken = [...e.wer].map((w) => (w === "familie" ? "#8C7B6B" : farbe[w] || "#888"))[0];
       zeilen.push(`<div class="eintrag ${vorbei ? "vorbei" : ""} ${laeuft ? "laeuft" : ""}" style="--farbe:${esc(balken)}">
         <div class="uhrzeit">${esc(zeitVon(e.start, sprache))}<small>${esc(zeitVon(e.ende, sprache))}</small></div>
-        <div class="inhalt"><div class="was">${esc(e.titel)}</div>
+        <div class="inhalt"><div class="was">${symbol(e.titel) ? `<span class="sym">${symbol(e.titel)}</span>` : ""}${esc(e.titel)}</div>
           <div class="details">${e.ort ? `<span><ha-icon icon="mdi:map-marker-outline"></ha-icon>${esc(e.ort)}</span>` : ""}${e.fahrer ? `<span><ha-icon icon="mdi:car"></ha-icon>${esc(e.fahrer)}</span>` : ""}</div></div>
         <div class="wer">${punkte}</div></div>`);
     }
@@ -554,7 +585,7 @@ class FamilienplanerFokus extends FpBasis {
       const label = k === heute ? tx.heute : k === morgen ? tx.morgen : `${tx.tage[tag.getDay()]}, ${tag.getDate()}.${tag.getMonth() + 1}.`;
       return `<div class="tag"><div class="taglabel">${esc(label)}</div>${liste.map((e) => {
         const fahrer = (/fahrer:\s*([^\s,]+)/i.exec(e.beschreibung) || [])[1];
-        return `<div class="ptermin"><span class="pzeit">${e.ganztag ? "●" : esc(zeitVon(e.start, sprache))}</span><span class="ptitel">${esc(e.titel)}</span>
+        return `<div class="ptermin"><span class="pzeit">${e.ganztag ? "●" : esc(zeitVon(e.start, sprache))}</span><span class="ptitel">${symbol(e.titel) ? `${symbol(e.titel)} ` : ""}${esc(e.titel)}</span>
           ${e.ort ? `<span class="pmeta"><ha-icon icon="mdi:map-marker-outline"></ha-icon>${esc(e.ort)}</span>` : ""}${fahrer ? `<span class="pmeta"><ha-icon icon="mdi:car"></ha-icon>${esc(fahrer)}</span>` : ""}</div>`;
       }).join("")}</div>`;
     }).join("");
@@ -609,6 +640,7 @@ const FOKUS_CSS = `
   .uhrzeit { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
   .uhrzeit small { display: block; font-size: 12px; font-weight: 500; color: var(--secondary-text-color); }
   .was { font-size: 18px; font-weight: 650; }
+  .sym { margin-right: 8px; }
   .details { display: flex; gap: 12px; flex-wrap: wrap; font-size: 13.5px; color: var(--secondary-text-color); margin-top: 2px; }
   .details span, .pmeta { display: inline-flex; gap: 3px; align-items: center; }
   .details ha-icon, .pmeta ha-icon { --mdc-icon-size: 15px; }
